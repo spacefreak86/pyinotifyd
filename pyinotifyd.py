@@ -275,10 +275,15 @@ def main():
 
     args = parser.parse_args()
 
-    LOGLEVEL = logging.INFO
-    WATCHES = []
+    default_config = {
+        "watches": [],
+        "loglevel": logging.INFO,
+        "shutdown_timeout": 30}
+
+    cfg = {"pyinotifyd_config": default_config}
     with open(args.config, "r") as c:
-        exec(c.read(), globals())
+        exec(c.read(), globals(), cfg)
+    cfg = cfg["pyinotifyd_config"]
 
     console = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -286,12 +291,10 @@ def main():
     console.setFormatter(formatter)
 
     if args.debug:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = LOGLEVEL
+        cfg["loglevel"] = logging.DEBUG
 
     root_logger = logging.getLogger()
-    root_logger.setLevel(loglevel)
+    root_logger.setLevel(cfg["loglevel"])
     root_logger.addHandler(console)
 
     watchable_flags = pyinotify.EventsCodes.OP_FLAGS
@@ -300,7 +303,7 @@ def main():
     wm = pyinotify.WatchManager()
     loop = asyncio.get_event_loop()
     notifiers = []
-    for watch in WATCHES:
+    for watch in cfg["watches"]:
         mask = False
         handler = pyinotify.ProcessEvent()
         for flag, values in watch["event_map"].items():
@@ -320,6 +323,7 @@ def main():
 
             setattr(handler, f"process_{flag}", exec_list.run)
 
+        logging.info(f"start watching {watch['path']}")
         wm.add_watch(
             watch["path"], mask, rec=watch["rec"], auto_add=watch["auto_add"],
             do_glob=True)
@@ -334,7 +338,7 @@ def main():
     for notifier in notifiers:
         notifier.stop()
 
-    loop.run_until_complete(shutdown())
+    loop.run_until_complete(shutdown(timeout=cfg["shutdown_timeout"]))
     loop.close()
     sys.exit(0)
 
