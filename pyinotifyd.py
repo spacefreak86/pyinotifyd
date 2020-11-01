@@ -18,7 +18,9 @@ import argparse
 import asyncio
 import logging
 import logging.handlers
+import os
 import pyinotify
+import re
 import shutil
 import sys
 
@@ -202,7 +204,7 @@ class FileManager:
                             shutil.rmdir(path)
                     else:
                         os.remove(path)
-                    
+
             except RuntimeError as e:
                 self._log.error(f"{task_id}: {e}")
             except Exception as e:
@@ -235,7 +237,8 @@ def add_mask(new_mask, current_mask=False):
 
 
 async def shutdown(timeout=30):
-    pending = [ t for t in asyncio.all_tasks() if t is not asyncio.current_task() ]
+    pending = [t for t in asyncio.all_tasks()
+               if t is not asyncio.current_task()]
     if len(pending) > 0:
         logging.info(
             f"graceful shutdown, waiting {timeout}s "
@@ -272,6 +275,8 @@ def main():
 
     args = parser.parse_args()
 
+    LOGLEVEL = logging.INFO
+    WATCHES = []
     with open(args.config, "r") as c:
         exec(c.read(), globals())
 
@@ -282,10 +287,8 @@ def main():
 
     if args.debug:
         loglevel = logging.DEBUG
-    elif "LOGLEVEL" in globals():
-        loglevel = LOGLEVEL
     else:
-        loglevel = logging.INFO
+        loglevel = LOGLEVEL
 
     root_logger = logging.getLogger()
     root_logger.setLevel(loglevel)
