@@ -35,8 +35,9 @@ pyinotifyd comes with different schedulers to schedule tasks with an optional de
 ### TaskScheduler
 This scheduler is used to run Python functions. 
 
+<div class="bg-yellow">
 class **TaskScheduler**(*job, delay=0, files=True, dirs=False, logname="TaskScheduler"*) 
-
+</div>
 Return a **TaskScheduler** object configured to call the Python function *job* with a delay of *delay* seconds. Use *files* and *dirs* to define if *job* is called for events on files and/or directories. Log messages with *logname*.
 
 ### ShellScheduler
