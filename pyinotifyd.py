@@ -67,11 +67,11 @@ class Task:
 
 
 class TaskScheduler:
-    def __init__(self, job, delay=0, files=True, directories=False,
+    def __init__(self, job, delay=0, files=True, dirs=False,
                  logname="TaskScheduler"):
         self._delay = delay
         self._files = files
-        self._directories = directories
+        self._dirs = dirs
         self._job = job
         self._tasks = {}
         self._log = logging.getLogger(logname)
@@ -86,7 +86,7 @@ class TaskScheduler:
         path = event.pathname
         maskname = event.maskname.split("|", 1)[0]
         if (not event.dir and not self._files) or \
-                (event.dir and not self._directories):
+                (event.dir and not self._dirs):
             return
 
         if path in self._tasks:

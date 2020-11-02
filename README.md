@@ -1,7 +1,7 @@
 # pyinotifyd
-A daemon to monitore filesystems events with inotify on Linux and execute tasks, which can be Python functions or shell commands.
+A daemon to monitore filesystems events with inotify on Linux and execute tasks, which can be Python functions or shell commands. It is build on top of the pyinotify library.
 
-## Dependencies
+## Requirements
 * [pyinotify](https://github.com/seb-m/pyinotify)
 
 ## Installation
@@ -16,16 +16,21 @@ The config file is written in Python syntax. pyinotifyd reads config options fro
 This is the default configuration:
 ```python
 pyinotifyd_config = {
+    # List of watches, description below
     "watches": [],
+    # Set the loglevel (see https://docs.python.org/3/library/logging.html#levels)
     "loglevel": logging.INFO,
+    # Set the timeout to wait for pending tasks to complete during shutdown
     "shutdown_timeout": 30
 }
 ```
-
-Global options:
-* **watches**
-  List of Watches, description below.
-* **loglevel**
-  Set the loglevel, you may use every available loglevel of the Python logging framework.
-* **shutdown_timeout**
-  Timeout to wait for pending tasks to complete when shutdown.
+## Watch configuration
+A Watch is defined as a dictionary which contains the config options:
+```python
+{
+    "path": "/tmp",
+    "rec": True,
+    "auto_add": True,
+    "event_map": {}
+}
+```
