@@ -27,6 +27,7 @@ import sys
 from shlex import quote as shell_quote
 from uuid import uuid4
 
+__version__ = "0.0.1"
 
 class Task:
     def __init__(self, event, delay, task_id, job, callback=None,
@@ -129,16 +130,19 @@ class ShellScheduler(TaskScheduler):
         cmd = cmd.replace("{maskname}", shell_quote(maskname))
         cmd = cmd.replace("{pathname}", shell_quote(event.pathname))
         if hasattr(event, "src_pathname"):
-            cmd = cmd.replace(
-                "{src_pathname}", shell_quote(event.src_pathname))
+            src_pathname = event.src_pathname
+        else:
+            src_pathname = ""
 
+        cmd = cmd.replace(
+            "{src_pathname}", shell_quote(src_pathname))
         self._log.info(f"{task_id}: execute shell command: {cmd}")
         proc = await asyncio.create_subprocess_shell(cmd)
         await proc.communicate()
 
 
 class FileManager:
-    def __init__(self, rules, auto_create=False, rec=False,
+    def __init__(self, rules, auto_create=True, rec=False,
                  logname="FileManager"):
         self._rules = []
         if not isinstance(rules, list):
@@ -260,20 +264,26 @@ def main():
         description="pyinotifyd",
         formatter_class=lambda prog: argparse.HelpFormatter(
             prog, max_help_position=45, width=140))
-
     parser.add_argument(
         "-c",
         "--config",
         help="path to config file (defaults to /etc/pyinotifyd/config.py)",
         default="/etc/pyinotifyd/config.py")
-
     parser.add_argument(
         "-d",
         "--debug",
-        help="Log debugging messages.",
+        help="log debugging messages",
         action="store_true")
-
+    parser.add_argument(
+        "-v",
+        "--version",
+        help="show version and exit",
+        action="store_true")
     args = parser.parse_args()
+
+    if args.version:
+        print(f"pyinotifyd ({__version__})")
+        sys.exit(0)
 
     default_config = {
         "watches": [],
