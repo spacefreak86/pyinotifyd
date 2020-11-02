@@ -69,10 +69,14 @@ class Task:
 class TaskScheduler:
     def __init__(self, job, delay=0, files=True, dirs=False,
                  logname="TaskScheduler"):
-        self._delay = delay
-        self._files = files
-        self._dirs = dirs
+        assert callable(job), f"job: expected callable, got {type(job)}"
         self._job = job
+        assert isinstance(delay, int), f"delay: expected {type(int)}, got {type(delay)}"
+        self._delay = delay
+        assert isinstance(files, bool), f"files: expected {type(bool)}, got {type(files)}"
+        self._files = files
+        assert isinstance(dirs, bool), f"dirs: expected {type(bool)}, got {type(dirs)}"
+        self._dirs = dirs
         self._tasks = {}
         self._log = logging.getLogger(logname)
 
@@ -121,6 +125,7 @@ class TaskScheduler:
 class ShellScheduler(TaskScheduler):
     def __init__(self, cmd, job=None, logname="ShellScheduler",
                  *args, **kwargs):
+        assert isinstance(cmd, str), f"cmd: expected {type('')}, got {type(cmd)}"
         self._cmd = cmd
         super().__init__(*args, job=self.job, logname=logname, **kwargs)
 
@@ -285,15 +290,19 @@ def main():
         print(f"pyinotifyd ({__version__})")
         sys.exit(0)
 
-    cfg = {
-        "watches": [],
-        "loglevel": logging.INFO,
-        "shutdown_timeout": 30}
+    cfg = {"watches": [],
+           "loglevel": logging.INFO,
+           "shutdown_timeout": 30}
 
-    cfg_vars = {"pyinotifyd_config": cfg}
-    with open(args.config, "r") as c:
-        exec(c.read(), globals(), cfg_vars)
-    cfg.update(cfg_vars["pyinotifyd_config"])
+    try:
+        cfg_vars = {"pyinotifyd_config": cfg}
+        with open(args.config, "r") as c:
+            exec(c.read(), globals(), cfg_vars)
+
+        cfg.update(cfg_vars["pyinotifyd_config"])
+    except Exception as e:
+        print(f"error in config file: {e}")
+        sys.exit(1)
 
     console = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -313,7 +322,15 @@ def main():
     wm = pyinotify.WatchManager()
     loop = asyncio.get_event_loop()
     notifiers = []
-    for watch in cfg["watches"]:
+    for watchcfg in cfg["watches"]:
+        watch = {"path": "",
+                 "rec": False,
+                 "auto_add": False,
+                 "event_map": {}}
+        watch.update(watchcfg)
+        if not watch["path"]:
+            continue
+
         mask = False
         handler = pyinotify.ProcessEvent()
         for flag, values in watch["event_map"].items():
@@ -350,6 +367,7 @@ def main():
 
     loop.run_until_complete(shutdown(timeout=cfg["shutdown_timeout"]))
     loop.close()
+
     sys.exit(0)
 
 
