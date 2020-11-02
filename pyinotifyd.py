@@ -285,15 +285,15 @@ def main():
         print(f"pyinotifyd ({__version__})")
         sys.exit(0)
 
-    default_config = {
+    cfg = {
         "watches": [],
         "loglevel": logging.INFO,
         "shutdown_timeout": 30}
 
-    cfg = {"pyinotifyd_config": default_config}
+    cfg_vars = {"pyinotifyd_config": cfg}
     with open(args.config, "r") as c:
-        exec(c.read(), globals(), cfg)
-    cfg = cfg["pyinotifyd_config"]
+        exec(c.read(), globals(), cfg_vars)
+    cfg.update(cfg_vars["pyinotifyd_config"])
 
     console = logging.StreamHandler()
     formatter = logging.Formatter(
