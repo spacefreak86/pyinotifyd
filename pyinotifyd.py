@@ -101,7 +101,8 @@ class TaskScheduler:
             f"dirs: expected {type(bool)}, got {type(dirs)}"
         self._dirs = dirs
         self._tasks = {}
-        self._log = logging.getLogger((logname or self.__class__.__name__))
+        self._logname = (logname or self.__class__.__name__)
+        self._log = logging.getLogger(self._logname)
 
     def _task_started(self, event):
         path = event.pathname
@@ -129,7 +130,7 @@ class TaskScheduler:
                 f"schedule task {task_id} (delay={self._delay}s)")
             task = Task(
                 event, self._delay, task_id, self._task,
-                callback=self._task_started)
+                callback=self._task_started, logname=self._logname)
             self._tasks[path] = task
             task.start()
 
