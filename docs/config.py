@@ -4,60 +4,56 @@
 #  Example usage of TaskScheduler  #
 ####################################
 
-#def custom_job(event, task_id):
-#    logging.info(f"{task_id}: execute task for {event}")
+#async def custom_task(event, task_id):
+#    logging.info(f"{task_id}: execute example task: {event}")
 #
-#s = TaskScheduler(delay=10, job=custom_job)
+#s = TaskScheduler(task=custom_task, files=True, dirs=False)
 
 
 #####################################################
 #  Example usage of TaskScheduler with FileManager  #
 #####################################################
 
-#fm = FileManager(
-#    rules=[
-#        {"action": "move",
-#         "src_re": r"^(?P<path>.*)",
-#         "dst_re": r"\g<path>.processed"}
-#    ]
-#)
-#
-#s = TaskScheduler(delay=10, job=fm.job)
+#rules=[{"action": "move",
+#        "src_re": r"^(?P<path>.*)",
+#        "dst_re": r"\g<path>.processed"}]
+#fm = FileManager(rules=rules, auto_create=True)
+#s = TaskScheduler(task=fm.task, delay=10, files=True, dirs=False)
 
 
 #####################################
 #  Example usage of ShellScheduler  #
 #####################################
 
-#s = ShellScheduler(cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
+#cmd = "/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}"
+#s = ShellScheduler(cmd=cmd)
+
+
+###################
+#  Example watch  #
+###################
+
+#event_map = EventMap({"IN_ACCESS": None,
+#                      "IN_ATTRIB": None,
+#                      "IN_CLOSE_NOWRITE": None,
+#                      "IN_CLOSE_WRITE": s.schedule,
+#                      "IN_CREATE": None,
+#                      "IN_DELETE": s.cancel,
+#                      "IN_DELETE_SELF": s.cancel,
+#                      "IN_IGNORED": None,
+#                      "IN_MODIFY": s.cancel,
+#                      "IN_MOVE_SELF": None,
+#                      "IN_MOVED_FROM": s.cancel,
+#                      "IN_MOVED_TO": s.schedule,
+#                      "IN_OPEN": None,
+#                      "IN_Q_OVERFLOW": None,
+#                      "IN_UNMOUNT": s.cancel})
+#watch = Watch(path="/tmp", event_map=event_map, rec=True, auto_add=True)
 
 
 ###############################
 #  Example pyinotifyd config  #
 ###############################
 
-#pyinotifyd_config = {
-#    "watches": [
-#        {"path": "/tmp",
-#         "rec": True,
-#         "auto_add": True,
-#         "event_map": {
-#             "IN_ACCESS": None,
-#             "IN_ATTRIB": None,
-#             "IN_CLOSE_NOWRITE": None,
-#             "IN_CLOSE_WRITE": s.schedule,
-#             "IN_CREATE": None,
-#             "IN_DELETE": s.cancel,
-#             "IN_DELETE_SELF": s.cancel,
-#             "IN_IGNORED": None,
-#             "IN_MODIFY": s.cancel,
-#             "IN_MOVE_SELF": None,
-#             "IN_MOVED_FROM": s.cancel,
-#             "IN_MOVED_TO": s.schedule,
-#             "IN_OPEN": None,
-#             "IN_Q_OVERFLOW": None,
-#             "IN_UNMOUNT": s.cancel}
-#        }
-#    ],
-#    "loglevel": logging.INFO,
-#    "shutdown_timeout":  15}
+#pyinotifyd_config = PyinotifydConfig(
+#    watches=[watch], loglevel=logging.INFO, shutdown_timeout=30)

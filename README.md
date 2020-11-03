@@ -1,72 +1,63 @@
 # pyinotifyd
-A daemon to monitore filesystems events with inotify on Linux and execute tasks, which can be Python functions or shell commands. It is build on top of the pyinotify library.
+A daemon to monitore filesystems events with inotify on Linux and execute tasks (Python methods or Shell commands) with an optional delay. It is also possible to cancel delayed tasks.
 
 ## Requirements
 * [pyinotify](https://github.com/seb-m/pyinotify)
 
 ## Installation
-* Install pyinotifyd with pip.
 ```sh
 pip install pyinotifyd
 ```
-* Modify /etc/pyinotifyd/config.py according to your needs.
 
 # Configuration
-The config file is written in Python syntax. pyinotifyd reads and executes its content, which means you can add custom Python code to the config file. 
+The config file **/etc/pyinotifyd/config.py** is written in Python syntax. pyinotifyd reads and executes its content, that means you can add your custom Python code to the config file.
 
-To pass config options to pyinotifyd, define a dictionary named **pyinotifyd_config**. 
-This is the default:
+## Tasks
+Tasks are Python methods that are called in case an event occurs. 
+This is a very simple example task that just logs the task_id and the event:
 ```python
-pyinotifyd_config = {
-    # List of watches, see description below
-    "watches": [],
-
-    # Loglevel (see https://docs.python.org/3/library/logging.html#levels)
-    "loglevel": logging.INFO,
-
-    # Timeout to wait for pending tasks to complete during shutdown
-    "shutdown_timeout": 30
-}
+async def custom_task(event, task_id):
+    logging.info(f"{task_id}: execute example task: {event}")
 ```
+This task can be directly bound to an event in an event map. Although this is the easiest and quickest way, it is usually better to use a scheduler to wrap the task.
 
 ## Schedulers
-pyinotifyd comes with different schedulers to schedule tasks with an optional delay. The advantages of using a scheduler are consistent logging and the possibility to cancel delayed tasks.
+pyinotifyd has different schedulers to schedule tasks with an optional delay. The advantages of using a scheduler are consistent logging and the possibility to cancel delayed tasks. Furthermore, schedulers have the ability to differentiate between files and directories.
 
 ### TaskScheduler
-This scheduler is used to run Python functions. 
-
-<div class="bg-yellow">
-class **TaskScheduler**(*job, delay=0, files=True, dirs=False, logname="TaskScheduler"*) 
-</div>
-Return a **TaskScheduler** object configured to call the Python function *job* with a delay of *delay* seconds. Use *files* and *dirs* to define if *job* is called for events on files and/or directories. Log messages with *logname*.
+Scheduler to schedule *task* with an optional *delay* in seconds. Use the *files* and *dirs* arguments to schedule tasks only for files and/or directories. 
+The *logname* argument is used to set a custom name for log messages. All arguments except for *task* are optional.
+```python
+s = TaskScheduler(task=custom_task, files=True, dirs=False, delay=0, logname="TaskScheduler")
+```
+TaskScheduler provides two tasks which can be bound to an event in an event map.
+* **s.schedule** 
+  Schedule a task. If there is already a scheduled task, it will be canceled first.
+* **s.cancel** 
+  Cancel a scheduled task.
 
 ### ShellScheduler
-
-## Watches
-A Watch is defined as a dictionary. 
-This is the default:
+Scheduler to schedule Shell command *cmd*. The placeholders **{maskname}**, **{pathname}** and **{src_pathname}** are replaced with the actual values of the event. ShellScheduler has the same optional arguments as TaskScheduler and provides the same tasks.
 ```python
-{
-    # path to watch, globbing is allowed
-    "path": "",
-
-    # set to True to add a watch on each subdirectory
-    "rec": False,
-
-    # set to True to automatically  add watches on newly created directories in watched parent path
-    "auto_add": False,
-
-    # dictionary which contains the event map, see description below
-    "event_map": {}
-}
+s1 = ShellScheduler(cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
 ```
-
-### Event maps
-An event map is defined as a dictionary. It is used to map different event types to Python functions. Those functions are called with the event-object a task-id as positional arguments if an event is received. It is possible to set a list of functions to run multiple tasks on a single event. If an event type is not present in the map or None is given, the event type is ignored.
+## Event map
+An event map is used to map event types to tasks. It is possible to set a list of tasks to run multiple tasks on a single event. If the task of an event type is set to None, it is ignored. 
 This is an example:
 ```python
-{
-    "IN_CLOSE_NOWRITE": [s1.schedule, s2.schedule],
-    "IN_CLOSE_WRITE": s1.schedule
-}
+event_map = EventMap({"IN_CLOSE_NOWRITE": [s.schedule, s1.schedule],
+                      "IN_CLOSE_WRITE": s.schedule})
+```
+
+## Watches
+Watch *path* for event types in *event_map* and execute the corresponding task(s). If *rec* is True, a watch will be added on each subdirectory in *path*. If *auto_add* is True, a watch will be added automatically on newly created subdirectories in *path*.
+
+```python
+watch = Watch(path="/tmp", event_map=event_map, rec=False, auto_add=False)
+```
+
+## PyinotifydConfig
+pyinotifyd expects an instance of PyinotifydConfig named **pyinotifyd_config** that holds its config options. The options are a list of *watches*, the *loglevel* (see https://docs.python.org/3/library/logging.html#levels) and the *shutdown_timeout*. pyinotifyd will wait *shutdown_timeout* seconds for pending tasks to complete during shutdown.
+```python
+pyinotifyd_config = PyinotifydConfig(watches=[watch], loglevel=logging.INFO, shutdown_timeout=30)
 ```

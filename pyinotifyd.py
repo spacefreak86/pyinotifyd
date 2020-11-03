@@ -29,16 +29,17 @@ from uuid import uuid4
 
 __version__ = "0.0.1"
 
+
 class Task:
-    def __init__(self, event, delay, task_id, job, callback=None,
+    def __init__(self, event, delay, task_id, task, callback=None,
                  logname="Task"):
         self._event = event
         self._path = event.pathname
         self._delay = delay
         self.task_id = task_id
-        self._task = None
-        self._job = job
+        self._job = task
         self._callback = callback
+        self._task = None
         self._log = logging.getLogger(logname)
 
     async def _start(self):
@@ -66,16 +67,38 @@ class Task:
         self.start()
 
 
+class TaskList:
+    def __init__(self, tasks=[]):
+        if not isinstance(tasks, list):
+            tasks = [tasks]
+
+        self._tasks = tasks
+
+    def add(self, task):
+        self._tasks.append(task)
+
+    def remove(self, task):
+        self._tasks.remove(task)
+
+    def execute(self, event):
+        for task in self._tasks:
+            task(event)
+
+
 class TaskScheduler:
-    def __init__(self, job, delay=0, files=True, dirs=False,
+    def __init__(self, task, files, dirs, delay=0,
                  logname="TaskScheduler"):
-        assert callable(job), f"job: expected callable, got {type(job)}"
-        self._job = job
-        assert isinstance(delay, int), f"delay: expected {type(int)}, got {type(delay)}"
+        assert callable(task), \
+            f"task: expected callable, got {type(task)}"
+        self._task = task
+        assert isinstance(delay, int), \
+            f"delay: expected {type(int)}, got {type(delay)}"
         self._delay = delay
-        assert isinstance(files, bool), f"files: expected {type(bool)}, got {type(files)}"
+        assert isinstance(files, bool), \
+            f"files: expected {type(bool)}, got {type(files)}"
         self._files = files
-        assert isinstance(dirs, bool), f"dirs: expected {type(bool)}, got {type(dirs)}"
+        assert isinstance(dirs, bool), \
+            f"dirs: expected {type(bool)}, got {type(dirs)}"
         self._dirs = dirs
         self._tasks = {}
         self._log = logging.getLogger(logname)
@@ -105,7 +128,7 @@ class TaskScheduler:
                 f"received event {maskname} on '{path}', "
                 f"schedule task {task_id} (delay={self._delay}s)")
             task = Task(
-                event, self._delay, task_id=task_id, job=self._job,
+                event, self._delay, task_id, self._task,
                 callback=self._task_started)
             self._tasks[path] = task
             task.start()
@@ -123,13 +146,14 @@ class TaskScheduler:
 
 
 class ShellScheduler(TaskScheduler):
-    def __init__(self, cmd, job=None, logname="ShellScheduler",
+    def __init__(self, cmd, task=None, logname="ShellScheduler",
                  *args, **kwargs):
-        assert isinstance(cmd, str), f"cmd: expected {type('')}, got {type(cmd)}"
+        assert isinstance(cmd, str), \
+            f"cmd: expected {type('')}, got {type(cmd)}"
         self._cmd = cmd
-        super().__init__(*args, job=self.job, logname=logname, **kwargs)
+        super().__init__(*args, task=self.task, logname=logname, **kwargs)
 
-    async def job(self, event, task_id):
+    async def task(self, event, task_id):
         maskname = event.maskname.split("|", 1)[0]
         cmd = self._cmd
         cmd = cmd.replace("{maskname}", shell_quote(maskname))
@@ -144,6 +168,74 @@ class ShellScheduler(TaskScheduler):
         self._log.info(f"{task_id}: execute shell command: {cmd}")
         proc = await asyncio.create_subprocess_shell(cmd)
         await proc.communicate()
+
+
+class EventMap:
+    flags = {**pyinotify.EventsCodes.OP_FLAGS,
+             **pyinotify.EventsCodes.EVENT_FLAGS}
+
+    def __init__(self, event_map=None):
+        self._map = {}
+        if event_map is not None:
+            assert isinstance(event_map, dict), \
+                f"event_map: expected {type(dict)}, got {type(event_map)}"
+            for flag, func in event_map.items():
+                self.set(flag, func)
+
+    def get(self):
+        return self._map
+
+    def set(self, flag, values):
+        assert flag in EventMap.flags, \
+            f"event_map: invalid flag: {flag}"
+        if values is None:
+            if flag in self._map:
+                del self._map[flag]
+        else:
+            if not isinstance(values, list):
+                values = [values]
+
+            for value in values:
+                assert callable(value), \
+                    f"event_map: {flag}: expected callable, got {type(value)}"
+
+            self._map[flag] = values
+
+
+class Watch:
+    def __init__(self, path, event_map, rec=False, auto_add=False):
+        assert isinstance(path, str), \
+            f"path: expected {type('')}, got {type(path)}"
+        self.path = path
+        if isinstance(event_map, EventMap):
+            self.event_map = event_map
+        elif isinstance(event_map, dict):
+            self.event_map = EventMap(event_map)
+        else:
+            raise AssertionError(
+                f"event_map: expected {type(EventMap)} or {type(dict)}, "
+                f"got {type(event_map)}")
+
+        assert isinstance(rec, bool), \
+            f"rec: expected {type(bool)}, got {type(rec)}"
+        self.rec = rec
+        assert isinstance(auto_add, bool), \
+            f"auto_add: expected {type(bool)}, got {type(auto_add)}"
+        self.auto_add = auto_add
+
+    def event_notifier(self, wm, loop):
+        handler = pyinotify.ProcessEvent()
+        mask = False
+        for flag, values in self.event_map.get().items():
+            setattr(handler, f"process_{flag}", TaskList(values).execute)
+            if not mask:
+                mask = EventMap.flags[flag]
+            else:
+                mask = mask | EventMap.flags[flag]
+
+        wm.add_watch(self.path, mask, rec=self.rec, auto_add=self.auto_add,
+                     do_glob=True)
+        return pyinotify.AsyncioNotifier(wm, loop, default_proc_fun=handler)
 
 
 class FileManager:
@@ -168,7 +260,7 @@ class FileManager:
         self._rec = rec
         self._log = logging.getLogger(logname)
 
-    async def job(self, event, task_id):
+    async def task(self, event, task_id):
         path = event.pathname
         match = None
         for rule in self._rules:
@@ -223,26 +315,30 @@ class FileManager:
             self._log.warning(f"{task_id}: no rule matches path '{path}'")
 
 
-class ExecList:
-    def __init__(self):
-        self._list = []
+class PyinotifydConfig:
+    def __init__(self, watches=[], loglevel=logging.INFO, shutdown_timeout=30):
+        if not isinstance(watches, list):
+            watches = [watches]
 
-    def add(self, func):
-        self._list.append(func)
+        self.set_watches(watches)
 
-    def remove(self, func):
-        self._list.remove(func)
+        assert isinstance(loglevel, int), \
+            f"loglevel: expected {type(int)}, got {type(loglevel)}"
+        self.loglevel = loglevel
 
-    def run(self, event):
-        for func in self._list:
-            func(event)
+        assert isinstance(shutdown_timeout, int), \
+            f"shutdown_timeout: expected {type(int)}, " \
+            f"got {type(shutdown_timeout)}"
+        self.shutdown_timeout = shutdown_timeout
 
+    def add_watch(self, *args, **kwargs):
+        self.watches.append(Watch(*args, **kwargs))
 
-def add_mask(new_mask, current_mask=False):
-    if not current_mask:
-        return new_mask
-    else:
-        return current_mask | new_mask
+    def set_watches(self, watches):
+        self.watches = []
+        for watch in watches:
+            assert isinstance(watch, Watch), \
+                f"watches: expected {type(Watch)}, got {type(watch)}"
 
 
 async def shutdown(timeout=30):
@@ -290,18 +386,16 @@ def main():
         print(f"pyinotifyd ({__version__})")
         sys.exit(0)
 
-    cfg = {"watches": [],
-           "loglevel": logging.INFO,
-           "shutdown_timeout": 30}
-
     try:
-        cfg_vars = {"pyinotifyd_config": cfg}
+        cfg = {}
         with open(args.config, "r") as c:
-            exec(c.read(), globals(), cfg_vars)
-
-        cfg.update(cfg_vars["pyinotifyd_config"])
+            exec(c.read(), globals(), cfg)
+        cfg = cfg["pyinotifyd_config"]
+        assert isinstance(cfg, PyinotifydConfig), \
+            f"pyinotifyd_config: expected {type(PyinotifydConfig)}, " \
+            f"got {type(cfg)}"
     except Exception as e:
-        print(f"error in config file: {e}")
+        logging.exception(f"error in config file: {e}")
         sys.exit(1)
 
     console = logging.StreamHandler()
@@ -310,52 +404,20 @@ def main():
     console.setFormatter(formatter)
 
     if args.debug:
-        cfg["loglevel"] = logging.DEBUG
+        loglevel = logging.DEBUG
+    else:
+        loglevel = cfg.loglevel
 
     root_logger = logging.getLogger()
-    root_logger.setLevel(cfg["loglevel"])
+    root_logger.setLevel(loglevel)
     root_logger.addHandler(console)
-
-    watchable_flags = pyinotify.EventsCodes.OP_FLAGS
-    watchable_flags.update(pyinotify.EventsCodes.EVENT_FLAGS)
 
     wm = pyinotify.WatchManager()
     loop = asyncio.get_event_loop()
     notifiers = []
-    for watchcfg in cfg["watches"]:
-        watch = {"path": "",
-                 "rec": False,
-                 "auto_add": False,
-                 "event_map": {}}
-        watch.update(watchcfg)
-        if not watch["path"]:
-            continue
-
-        mask = False
-        handler = pyinotify.ProcessEvent()
-        for flag, values in watch["event_map"].items():
-            if flag not in watchable_flags or values is None:
-                continue
-
-            if not isinstance(values, list):
-                values = [values]
-
-            mask = add_mask(pyinotify.EventsCodes.ALL_FLAGS[flag], mask)
-            exec_list = ExecList()
-            for value in values:
-                assert callable(value), \
-                    f"event_map['{flag}']: expected callable, " \
-                    f"got {type(value)}"
-                exec_list.add(value)
-
-            setattr(handler, f"process_{flag}", exec_list.run)
-
-        logging.info(f"start watching {watch['path']}")
-        wm.add_watch(
-            watch["path"], mask, rec=watch["rec"], auto_add=watch["auto_add"],
-            do_glob=True)
-        notifiers.append(pyinotify.AsyncioNotifier(
-            wm, loop, default_proc_fun=handler))
+    for watch in cfg.watches:
+        logging.info(f"start watching '{watch.path}'")
+        notifiers.append(watch.event_notifier(wm, loop))
 
     try:
         loop.run_forever()
@@ -365,7 +427,7 @@ def main():
     for notifier in notifiers:
         notifier.stop()
 
-    loop.run_until_complete(shutdown(timeout=cfg["shutdown_timeout"]))
+    loop.run_until_complete(shutdown(timeout=cfg.shutdown_timeout))
     loop.close()
 
     sys.exit(0)
