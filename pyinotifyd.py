@@ -33,15 +33,15 @@ __version__ = "0.0.1"
 
 class Task:
     def __init__(self, event, delay, task_id, task, callback=None,
-                 logname="Task"):
+            logname=None):
         self._event = event
         self._path = event.pathname
         self._delay = delay
-        self.task_id = task_id
+        self._task_id = task_id
         self._job = task
         self._callback = callback
         self._task = None
-        self._log = logging.getLogger(logname)
+        self._log = logging.getLogger((logname or self.__class__.__name__))
 
     async def _start(self):
         if self._delay > 0:
@@ -50,9 +50,9 @@ class Task:
         if self._callback is not None:
             self._callback(self._event)
         self._task = None
-        self._log.info(f"execute task {self.task_id}")
-        await asyncio.shield(self._job(self._event, self.task_id))
-        self._log.info(f"task {self.task_id} finished")
+        self._log.info(f"execute task {self._task_id}")
+        await asyncio.shield(self._job(self._event, self._task_id))
+        self._log.info(f"task {self._task_id} finished")
 
     def start(self):
         if self._task is None:
@@ -87,8 +87,7 @@ class TaskList:
 
 
 class TaskScheduler:
-    def __init__(self, task, files, dirs, delay=0,
-                 logname="TaskScheduler"):
+    def __init__(self, task, files, dirs, delay=0, logname=None):
         assert callable(task), \
             f"task: expected callable, got {type(task)}"
         self._task = task
@@ -102,7 +101,7 @@ class TaskScheduler:
             f"dirs: expected {type(bool)}, got {type(dirs)}"
         self._dirs = dirs
         self._tasks = {}
-        self._log = logging.getLogger(logname)
+        self._log = logging.getLogger((logname or self.__class__.__name__))
 
     def _task_started(self, event):
         path = event.pathname
@@ -111,12 +110,12 @@ class TaskScheduler:
 
     def schedule(self, event):
         self._log.debug(f"received {event}")
-        path = event.pathname
-        maskname = event.maskname.split("|", 1)[0]
         if (not event.dir and not self._files) or \
                 (event.dir and not self._dirs):
             return
 
+        path = event.pathname
+        maskname = event.maskname.split("|", 1)[0]
         if path in self._tasks:
             task = self._tasks[path]
             self._log.info(f"received event {maskname} on '{path}', "
@@ -147,11 +146,11 @@ class TaskScheduler:
 
 
 class ShellScheduler(TaskScheduler):
-    def __init__(self, cmd, task=None, logname="ShellScheduler",
-                 *args, **kwargs):
+    def __init__(self, cmd, task=None, logname=None, *args, **kwargs):
         assert isinstance(cmd, str), \
             f"cmd: expected {type('')}, got {type(cmd)}"
         self._cmd = cmd
+        logname = (logname or self.__class__.__name__)
         super().__init__(*args, task=self.task, logname=logname, **kwargs)
 
     async def task(self, event, task_id):
@@ -189,8 +188,8 @@ class EventMap:
             for flag, task in event_map.items():
                 self.set(flag, task)
 
-    def get(self):
-        return self._map
+    def items(self):
+        return self._map.items()
 
     def set(self, flag, values):
         assert flag in EventMap.flags, \
@@ -233,12 +232,12 @@ class Watch:
     def event_notifier(self, wm, loop):
         handler = pyinotify.ProcessEvent()
         mask = False
-        for flag, values in self.event_map.get().items():
+        for flag, values in self.event_map.items():
             setattr(handler, f"process_{flag}", TaskList(values).execute)
-            if not mask:
-                mask = EventMap.flags[flag]
-            else:
+            if mask:
                 mask = mask | EventMap.flags[flag]
+            else:
+                mask = EventMap.flags[flag]
 
         wm.add_watch(self.path, mask, rec=self.rec, auto_add=self.auto_add,
                      do_glob=True)
@@ -266,7 +265,7 @@ class Rule:
 
 
 class FileManager:
-    def __init__(self, rules, logname="FileManager"):
+    def __init__(self, rules, logname=None):
         if not isinstance(rules, list):
             rules = [rules]
 
@@ -275,7 +274,7 @@ class FileManager:
                 f"rules: expected {type(Rule)}, got {type(rule)}"
 
         self._rules = rules
-        self._log = logging.getLogger(logname)
+        self._log = logging.getLogger((logname or self.__class__.__name__))
 
     def add_rule(self, *args, **kwargs):
         self._rules.append(Rule(*args, **kwargs))
@@ -362,40 +361,43 @@ class PyinotifydConfig:
                 f"watches: expected {type(Watch)}, got {type(watch)}"
 
 
-async def shutdown(signame, notifiers, timeout=30):
-    logging.info(f"got signal {signame}, shutdown ...")
+async def shutdown(signame, notifiers, logname, timeout=30):
+    log = logging.getLogger(logname)
+
+    log.info(f"got signal {signame}, shutdown ...")
     for notifier in notifiers:
         notifier.stop()
 
     pending = [t for t in asyncio.all_tasks()
                if t is not asyncio.current_task()]
     if len(pending) > 0:
-        logging.info(
+        log.info(
             f"graceful shutdown, waiting {timeout}s "
             f"for remaining tasks to complete")
         try:
             future = asyncio.gather(*pending)
             await asyncio.wait_for(future, timeout)
         except asyncio.TimeoutError:
-            logging.warning(
+            log.warning(
                 "forcefully terminate remaining tasks")
             future.cancel()
             future.exception()
 
-    logging.info("shutdown")
+    log.info("shutdown")
     asyncio.get_event_loop().stop()
 
 
 def main():
+    myname = "pyinotifyd"
     parser = argparse.ArgumentParser(
-        description="pyinotifyd",
+        description=myname,
         formatter_class=lambda prog: argparse.HelpFormatter(
             prog, max_help_position=45, width=140))
     parser.add_argument(
         "-c",
         "--config",
-        help="path to config file (defaults to /etc/pyinotifyd/config.py)",
-        default="/etc/pyinotifyd/config.py")
+        help=f"path to config file (defaults to /etc/{myname}/config.py)",
+        default=f"/etc/{myname}/config.py")
     parser.add_argument(
         "-d",
         "--debug",
@@ -409,19 +411,21 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print(f"pyinotifyd ({__version__})")
+        print(f"{myname} ({__version__})")
         sys.exit(0)
+
+    log = logging.getLogger(myname)
 
     try:
         cfg = {}
         with open(args.config, "r") as c:
             exec(c.read(), globals(), cfg)
-        cfg = cfg["pyinotifyd_config"]
+        cfg = cfg[f"{myname}_config"]
         assert isinstance(cfg, PyinotifydConfig), \
-            f"pyinotifyd_config: expected {type(PyinotifydConfig)}, " \
+            f"{myname}_config: expected {type(PyinotifydConfig)}, " \
             f"got {type(cfg)}"
     except Exception as e:
-        logging.exception(f"error in config file: {e}")
+        log.exception(f"error in config file: {e}")
         sys.exit(1)
 
     console = logging.StreamHandler()
@@ -442,17 +446,16 @@ def main():
     loop = asyncio.get_event_loop()
     notifiers = []
     for watch in cfg.watches:
-        logging.info(f"start watching '{watch.path}'")
+        log.info(f"start watching '{watch.path}'")
         notifiers.append(watch.event_notifier(wm, loop))
 
     for signame in ["SIGINT", "SIGTERM"]:
         loop.add_signal_handler(getattr(signal, signame),
             lambda: asyncio.ensure_future(
-                shutdown(signame, notifiers, timeout=cfg.shutdown_timeout)))
+                shutdown(signame, notifiers, myname,
+                    timeout=cfg.shutdown_timeout)))
 
     loop.run_forever()
-
-
     loop.close()
 
     sys.exit(0)

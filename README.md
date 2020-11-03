@@ -25,13 +25,13 @@ async def task(event, task_id):
 ### FileManager
 FileManager moves, copy or deletes files and/or directories following a list of *rules*. 
 
-A rule holds an *action* (move, copy or delete) and a regular expression *src_re*. The FileManager task will be executed if *src_re* matches the path of an event. If the action is copy or move, the destination path *dst_re* is mandatory. If *auto_create* is True, possibly missing subdirectories in *dst_re* are automatically created. If *action* is delete and *rec* is True, non-empty directories will be deleted recursively. It is possible to use Regex subgroups or named-subgroups in *src_re* and *dst_re*.
+A rule holds an *action* (move, copy or delete) and a regular expression *src_re*. The FileManager task will be executed if *src_re* matches the path of an event. If the action is copy or move, the destination path *dst_re* is mandatory. If *auto_create* is True, possibly missing subdirectories in *dst_re* are automatically created. If *action* is delete and *rec* is True, non-empty directories will be deleted recursively. It is possible to use Regex subgroups or named-subgroups in *src_re* and *dst_re*. Use *logname* in log messages.
 ```python
 rule = Rule(
     action="move", src_re="^/src_path/(?P<path>.*).to_move$",
     dst_re="/dst_path/\g<path>", auto_create=False, rec=False)
 
-fm = FileManager(rules=[rule])
+fm = FileManager(rules=[rule], logname="FileManager")
 ```
 FileManager provides a task **fm.task**.
 
@@ -40,7 +40,7 @@ pyinotifyd has different schedulers to schedule tasks with an optional delay. Th
 
 ### TaskScheduler
 TaskScheduler schedules *task* with an optional *delay* in seconds. Use the *files* and *dirs* arguments to schedule tasks only for files and/or directories. 
-The *logname* argument is used to set a custom name for log messages. All arguments except for *task* are optional.
+Use *logname* in log messages. All arguments except for *task* are optional.
 ```python
 s = TaskScheduler(task=task, files=True, dirs=False, delay=0, logname="TaskScheduler")
 ```
