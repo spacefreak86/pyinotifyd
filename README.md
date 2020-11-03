@@ -24,6 +24,7 @@ async def task(event, task_id):
 
 ### FileManager
 FileManager moves, copy or deletes files and/or directories following a list of *rules*. 
+
 A rule holds an *action* (move, copy or delete) and a regular expression *src_re*. The FileManager task will be executed if *src_re* matches the path of an event. If the action is copy or move, the destination path *dst_re* is mandatory. If *auto_create* is True, possibly missing subdirectories in *dst_re* are automatically created. If *action* is delete and *rec* is True, non-empty directories will be deleted recursively. It is possible to use Regex subgroups or named-subgroups in *src_re* and *dst_re*.
 ```python
 rule = Rule(
@@ -32,6 +33,7 @@ rule = Rule(
 
 fm = FileManager(rules=[rule])
 ```
+FileManager provides a task **fm.task**.
 
 ## Schedulers
 pyinotifyd has different schedulers to schedule tasks with an optional delay. The advantages of using a scheduler are consistent logging and the possibility to cancel delayed tasks. Furthermore, schedulers have the ability to differentiate between files and directories.
