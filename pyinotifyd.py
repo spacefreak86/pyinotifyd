@@ -22,6 +22,7 @@ import os
 import pyinotify
 import re
 import shutil
+import signal
 import sys
 
 from shlex import quote as shell_quote
@@ -290,7 +291,7 @@ class FileManager:
         if match is not None:
             try:
                 if rule.action in ["copy", "move"]:
-                    dest = src_re.sub(rule.dst_re, path)
+                    dest = rule.src_re.sub(rule.dst_re, path)
                     if not dest:
                         raise RuntimeError(
                             f"unable to {rule.action} '{path}', "
@@ -306,8 +307,8 @@ class FileManager:
                             f"destination path exists already")
 
                     self._log.info(
-                        f"{task_id}: {action} '{path}' to '{dest}'")
-                    if action == "copy":
+                        f"{task_id}: {rule.action} '{path}' to '{dest}'")
+                    if rule.action == "copy":
                         if os.path.isdir(path):
                             shutil.copytree(path, dest)
                         else:
@@ -317,7 +318,7 @@ class FileManager:
 
                 elif rule.action == "delete":
                     self._log.info(
-                        f"{task_id}: delete '{path}'")
+                        f"{task_id}: {rule.action} '{path}'")
                     if os.path.isdir(path):
                         if rule.rec:
                             shutil.rmtree(path)
@@ -361,7 +362,11 @@ class PyinotifydConfig:
                 f"watches: expected {type(Watch)}, got {type(watch)}"
 
 
-async def shutdown(timeout=30):
+async def shutdown(signame, notifiers, timeout=30):
+    logging.info(f"got signal {signame}, shutdown ...")
+    for notifier in notifiers:
+        notifier.stop()
+
     pending = [t for t in asyncio.all_tasks()
                if t is not asyncio.current_task()]
     if len(pending) > 0:
@@ -378,6 +383,7 @@ async def shutdown(timeout=30):
             future.exception()
 
     logging.info("shutdown")
+    asyncio.get_event_loop().stop()
 
 
 def main():
@@ -439,15 +445,14 @@ def main():
         logging.info(f"start watching '{watch.path}'")
         notifiers.append(watch.event_notifier(wm, loop))
 
-    try:
-        loop.run_forever()
-    except KeyboardInterrupt:
-        pass
+    for signame in ["SIGINT", "SIGTERM"]:
+        loop.add_signal_handler(getattr(signal, signame),
+            lambda: asyncio.ensure_future(
+                shutdown(signame, notifiers, timeout=cfg.shutdown_timeout)))
 
-    for notifier in notifiers:
-        notifier.stop()
+    loop.run_forever()
 
-    loop.run_until_complete(shutdown(timeout=cfg.shutdown_timeout))
+
     loop.close()
 
     sys.exit(0)
