@@ -16,8 +16,9 @@
 
 #rules=[{"action": "move",
 #        "src_re": r"^(?P<path>.*)",
-#        "dst_re": r"\g<path>.processed"}]
-#fm = FileManager(rules=rules, auto_create=True)
+#        "dst_re": r"\g<path>.processed",
+#        "auto_create": True}]
+#fm = FileManager(rules=rules)
 #s = TaskScheduler(task=fm.task, delay=10, files=True, dirs=False)
 
 
