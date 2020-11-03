@@ -13,7 +13,7 @@ pip install pyinotifyd
 The config file **/etc/pyinotifyd/config.py** is written in Python syntax. pyinotifyd reads and executes its content, that means you can add your custom Python code to the config file.
 
 ## Tasks
-Tasks are Python methods that are called in case an event occurs. They can be bound directly to an event type in an event map. Although this is the easiest and quickest way, it is usually better to use a scheduler to schedule the task execution.
+Tasks are Python methods that are called in case an event occurs. They can be bound directly to an event type in an event map. Although this is the easiest and quickest way, it is usually better to add a task to a scheduler and bind the scheduler to event types.
 
 ### Simple
 This is a very basic example task that just logs each event and task_id:
