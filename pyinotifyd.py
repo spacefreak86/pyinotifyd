@@ -249,7 +249,6 @@ class Rule:
 
     def __init__(self, action, src_re, dst_re="", auto_create=False,
             rec=False):
-
         assert action in self.valid_actions, \
             f"action: expected [{Rule.valid_actions.join(', ')}], got{action}"
         self.action = action
@@ -292,6 +291,10 @@ class FileManager:
             try:
                 if rule.action in ["copy", "move"]:
                     dest = src_re.sub(rule.dst_re, path)
+                    if not dest:
+                        raise RuntimeError(
+                            f"unable to {rule.action} '{path}', "
+                            f"resulting destination path is empty")
                     dest_dir = os.path.dirname(dest)
                     if not os.path.isdir(dest_dir) and rule.auto_create:
                         self._log.info(

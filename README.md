@@ -13,13 +13,15 @@ pip install pyinotifyd
 The config file **/etc/pyinotifyd/config.py** is written in Python syntax. pyinotifyd reads and executes its content, that means you can add your custom Python code to the config file.
 
 ## Tasks
-Tasks are Python methods that are called in case an event occurs. 
-This is a very simple example task that just logs the task_id and the event:
+Tasks are Python methods that are called in case an event occurs. They can be bound directly to an event type in an event map. Although this is the easiest and quickest way, it is usually better to use a scheduler to schedule the task execution.
+
+### Simple
+This is a very basic example task that just logs each event and task_id:
 ```python
-async def custom_task(event, task_id):
+async def task(event, task_id):
     logging.info(f"{task_id}: execute example task: {event}")
 ```
-This task can be directly bound to an event in an event map. Although this is the easiest and quickest way, it is usually better to use a scheduler to schedule the task execution.
+### FileManager
 
 ## Schedulers
 pyinotifyd has different schedulers to schedule tasks with an optional delay. The advantages of using a scheduler are consistent logging and the possibility to cancel delayed tasks. Furthermore, schedulers have the ability to differentiate between files and directories.
@@ -28,7 +30,7 @@ pyinotifyd has different schedulers to schedule tasks with an optional delay. Th
 TaskScheduler to schedule *task* with an optional *delay* in seconds. Use the *files* and *dirs* arguments to schedule tasks only for files and/or directories. 
 The *logname* argument is used to set a custom name for log messages. All arguments except for *task* are optional.
 ```python
-s = TaskScheduler(task=custom_task, files=True, dirs=False, delay=0, logname="TaskScheduler")
+s = TaskScheduler(task=task, files=True, dirs=False, delay=0, logname="TaskScheduler")
 ```
 TaskScheduler provides two tasks which can be bound to an event in an event map.
 * **s.schedule** 
@@ -65,12 +67,12 @@ pyinotifyd_config = PyinotifydConfig(watches=[watch], loglevel=logging.INFO, shu
 
 ## Schedule Python task for all events
 ```python
-async def custom_task(event, task_id):
+async def task(event, task_id):
     logging.info(f"{task_id}: execute example task: {event}")
 
-s = TaskScheduler(task=custom_task, files=True, dirs=True)
+s = TaskScheduler(task=task, files=True, dirs=True)
 
-event_map = EventMap(default_task=custom_task)
+event_map = EventMap(default_task=task)
 watch = Watch(path="/tmp", event_map=event_map, rec=True, auto_add=True)
 
 pyinotifyd_config = PyinotifydConfig(
@@ -92,15 +94,21 @@ pyinotifyd_config = PyinotifydConfig(
 
 ## Move, copy or delete newly created files after a delay
 ```python
-rules = [{"action": "move",
-          "src_re": "^/src_path/(?P<path>.*)\.to_move$",
-          "dst_re": "/dst_path/\g<path"},
-         {"action": "copy",
-          "src_re": "^/src_path/(?P<path>.*)\.to_copy$",
-          "dst_re": "/dst_path/\g<path"},
-         {"action": "delete",
-          "src_re": "^/src_path/(?P<path>.*)\.to_delete$"}]
-fm = FileManager(rules=rules, auto_create=True)
+move_rule = Rule(action="move",
+    src_re="^/src_path/(?P<path>.*)\.to_move$",
+    dst_re="/dst_path/\g<path>",
+    auto_create=True)
+
+copy_rule = Rule(action="copy",
+    src_re="^/src_path/(?P<path>.*)\.to_copy$",
+    dst_re="/dst_path/\g<path>",
+    auto_create=True)
+
+delete_rule = Rule(action="delete",
+    src_re="^/src_path/(?P<path>.*)\.to_delete$",
+    rec=False)
+
+fm = FileManager(rules=[move_rule, copy_rule, delete_rule])
 
 s = TaskScheduler(task=fm.task, delay=30, files=True, dirs=False)
 
