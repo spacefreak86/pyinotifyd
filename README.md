@@ -118,3 +118,13 @@ watch = Watch(path="/src_path", event_map=event_map, rec=True, auto_add=True)
 pyinotifyd_config = PyinotifydConfig(
     watches=[watch], loglevel=logging.INFO, shutdown_timeout=35)
 ```
+
+# Autostart
+pyinotifyd provides a systemd service file.
+```sh
+# start the daemon during boot
+systemctl enable pyinotifyd.service
+
+# start the daemon
+systemctl start pyinotifyd.service
+```
