@@ -405,6 +405,11 @@ def main():
         help="log debugging messages",
         action="store_true")
     parser.add_argument(
+        "-e",
+        "--events",
+        help="show event types and exit",
+        action="store_true")
+    parser.add_argument(
         "-v",
         "--version",
         help="show version and exit",
@@ -413,6 +418,10 @@ def main():
 
     if args.version:
         print(f"{myname} ({__version__})")
+        sys.exit(0)
+    elif args.events:
+        types = "\n".join(EventMap.flags.keys())
+        print(types)
         sys.exit(0)
 
     log = logging.getLogger(myname)

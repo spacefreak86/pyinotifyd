@@ -62,6 +62,22 @@ This is an example:
 event_map = EventMap({"IN_CLOSE_NOWRITE": [s.schedule, s1.schedule],
                       "IN_CLOSE_WRITE": s.schedule})
 ```
+The following event types are available:
+* **IN_ACCESS**: a file was accessed
+* **IN_ATTRIB**: a metadata changed
+* **IN_CLOSE_NOWRITE**: an unwritable file was closed
+* **IN_CLOSE_WRITE**: a writable file was closed
+* **IN_CREATE**: a file/directory was created
+* **IN_DELETE**: a file/directory was deleted
+* **IN_DELETE_SELF**: a watched item itself was deleted
+* **IN_IGNORED**: raised when a watch is removed, probably useless for you
+* **IN_MODIFY**: a file was modified
+* **IN_MOVE_SELF**: a watched item was moved, currently its full pathname destination can only be known if its source and destination directories were both watched. Otherwise, the file is still being watched but you cannot rely anymore on the given path attribute *event.path*
+* **IN_MOVED_FROM**: a file/directory in a watched directory was moved from another specified watched directory. Can trace the full move of an item when IN_MOVED_TO is available too, in this case if the moved item is itself watched, its path will be updated (see IN_MOVE_SELF)
+* **IN_MOVED_TO**: a file/directory was moved to another specified watched directory (see IN_MOVE_FROM)
+* **IN_OPEN**: a file was opened
+* **IN_Q_OVERFLOW**: the event queue overflown. This event is not associated with any watch descriptor
+* **IN_UNMOUNT**: when backing filesystem was unmounted. Notified to each watch of this filesystem
 
 ### Watches
 Watch watches *path* for event types in *event_map* and execute the corresponding task(s). If *rec* is True, a watch will be added on each subdirectory in *path*. If *auto_add* is True, a watch will be added automatically on newly created subdirectories in *path*.
@@ -73,6 +89,16 @@ watch = Watch(path="/tmp", event_map=event_map, rec=False, auto_add=False)
 pyinotifyd expects an instance of PyinotifydConfig named **pyinotifyd_config** that holds its config options. The options are a list of *watches*, the *loglevel* (see https://docs.python.org/3/library/logging.html#levels) and the *shutdown_timeout*. pyinotifyd will wait *shutdown_timeout* seconds for pending tasks to complete during shutdown.
 ```python
 pyinotifyd_config = PyinotifydConfig(watches=[watch], loglevel=logging.INFO, shutdown_timeout=30)
+```
+
+### Autostart
+pyinotifyd provides a systemd service file.
+```sh
+# start pyinotifyd at boot time
+systemctl enable pyinotifyd.service
+
+# start the daemon immediately
+systemctl start pyinotifyd.service
 ```
 
 ## Examples
@@ -136,14 +162,4 @@ watch = Watch(path="/src_path", event_map=event_map, rec=True, auto_add=True)
 # otherwise pending tasks may get cancelled during shutdown.
 pyinotifyd_config = PyinotifydConfig(
     watches=[watch], loglevel=logging.INFO, shutdown_timeout=35)
-```
-
-### Autostart
-pyinotifyd provides a systemd service file.
-```sh
-# start pyinotifyd at boot time
-systemctl enable pyinotifyd.service
-
-# start the daemon immediately
-systemctl start pyinotifyd.service
 ```
