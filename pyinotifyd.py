@@ -174,13 +174,19 @@ class EventMap:
     flags = {**pyinotify.EventsCodes.OP_FLAGS,
              **pyinotify.EventsCodes.EVENT_FLAGS}
 
-    def __init__(self, event_map=None):
+    def __init__(self, event_map=None, default_task=None):
         self._map = {}
+        if default_task is not None:
+            assert callable(default_task), \
+                f"default_task: expected callable, got {type(default_task)}"
+            for flag in EventMap.flags:
+                self.set(flag, default_task)
+
         if event_map is not None:
             assert isinstance(event_map, dict), \
                 f"event_map: expected {type(dict)}, got {type(event_map)}"
-            for flag, func in event_map.items():
-                self.set(flag, func)
+            for flag, task in event_map.items():
+                self.set(flag, task)
 
     def get(self):
         return self._map

@@ -60,3 +60,32 @@ pyinotifyd expects an instance of PyinotifydConfig named **pyinotifyd_config** t
 ```python
 pyinotifyd_config = PyinotifydConfig(watches=[watch], loglevel=logging.INFO, shutdown_timeout=30)
 ```
+
+# Examples
+
+## Schedule Python task for all events
+```python
+async def custom_task(event, task_id):
+    logging.info(f"{task_id}: execute example task: {event}")
+
+s = TaskScheduler(task=custom_task, files=True, dirs=True)
+event_map = EventMap(default_task=custom_task)
+watch = Watch(path="/tmp", event_map=event_map, rec=True, auto_add=True)
+pyinotifyd_config = PyinotifydConfig(
+    watches=[watch], loglevel=logging.INFO, shutdown_timeout=5)
+```
+
+## Schedule Shell commands for specific events on files
+```python
+s = ShellScheduler(
+    cmd="/usr/local/sbin/task.sh {pathname}", files=True, dirs=False)
+event_map = EventMap({"IN_WRITE_CLOSE": s.schedule,
+                      "IN_DELETE": s.schedule})
+watch = Watch(path="/tmp", event_map=event_map, rec=True, auto_add=True)
+pyinotifyd_config = PyinotifydConfig(
+    watches=[watch], loglevel=logging.INFO, shutdown_timeout=5)
+```
+
+## Keep copy of new files
+```python
+```
