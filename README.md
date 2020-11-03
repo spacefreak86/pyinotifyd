@@ -122,9 +122,9 @@ pyinotifyd_config = PyinotifydConfig(
 # Autostart
 pyinotifyd provides a systemd service file.
 ```sh
-# start the daemon during boot
+# start pyinotifyd at boot time
 systemctl enable pyinotifyd.service
 
-# start the daemon
+# start the daemon immediately
 systemctl start pyinotifyd.service
 ```
