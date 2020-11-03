@@ -19,13 +19,13 @@ This is a very simple example task that just logs the task_id and the event:
 async def custom_task(event, task_id):
     logging.info(f"{task_id}: execute example task: {event}")
 ```
-This task can be directly bound to an event in an event map. Although this is the easiest and quickest way, it is usually better to use a scheduler to wrap the task.
+This task can be directly bound to an event in an event map. Although this is the easiest and quickest way, it is usually better to use a scheduler to schedule the task execution.
 
 ## Schedulers
 pyinotifyd has different schedulers to schedule tasks with an optional delay. The advantages of using a scheduler are consistent logging and the possibility to cancel delayed tasks. Furthermore, schedulers have the ability to differentiate between files and directories.
 
 ### TaskScheduler
-Scheduler to schedule *task* with an optional *delay* in seconds. Use the *files* and *dirs* arguments to schedule tasks only for files and/or directories. 
+TaskScheduler to schedule *task* with an optional *delay* in seconds. Use the *files* and *dirs* arguments to schedule tasks only for files and/or directories. 
 The *logname* argument is used to set a custom name for log messages. All arguments except for *task* are optional.
 ```python
 s = TaskScheduler(task=custom_task, files=True, dirs=False, delay=0, logname="TaskScheduler")
@@ -37,12 +37,12 @@ TaskScheduler provides two tasks which can be bound to an event in an event map.
   Cancel a scheduled task.
 
 ### ShellScheduler
-Scheduler to schedule Shell command *cmd*. The placeholders **{maskname}**, **{pathname}** and **{src_pathname}** are replaced with the actual values of the event. ShellScheduler has the same optional arguments as TaskScheduler and provides the same tasks.
+ShellScheduler to schedule Shell command *cmd*. The placeholders **{maskname}**, **{pathname}** and **{src_pathname}** are replaced with the actual values of the event. ShellScheduler has the same optional arguments as TaskScheduler and provides the same tasks.
 ```python
 s1 = ShellScheduler(cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
 ```
-## Event map
-An event map is used to map event types to tasks. It is possible to set a list of tasks to run multiple tasks on a single event. If the task of an event type is set to None, it is ignored. 
+## Event maps
+Event maps are used to map event types to tasks. It is possible to set a list of tasks to run multiple tasks on a single event. If the task of an event type is set to None, it is ignored. 
 This is an example:
 ```python
 event_map = EventMap({"IN_CLOSE_NOWRITE": [s.schedule, s1.schedule],
@@ -50,8 +50,7 @@ event_map = EventMap({"IN_CLOSE_NOWRITE": [s.schedule, s1.schedule],
 ```
 
 ## Watches
-Watch *path* for event types in *event_map* and execute the corresponding task(s). If *rec* is True, a watch will be added on each subdirectory in *path*. If *auto_add* is True, a watch will be added automatically on newly created subdirectories in *path*.
-
+Watches *path* for event types in *event_map* and execute the corresponding task(s). If *rec* is True, a watch will be added on each subdirectory in *path*. If *auto_add* is True, a watch will be added automatically on newly created subdirectories in *path*.
 ```python
 watch = Watch(path="/tmp", event_map=event_map, rec=False, auto_add=False)
 ```
