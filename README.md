@@ -90,6 +90,31 @@ pyinotifyd_config = PyinotifydConfig(
     watches=[watch], loglevel=logging.INFO, shutdown_timeout=5)
 ```
 
-## Keep copy of new files
+## Move, copy or delete newly created files after a delay
 ```python
+rules = [{"action": "move",
+          "src_re": "^/src_path/(?P<path>.*)\.to_move$",
+          "dst_re": "/dst_path/\g<path"},
+         {"action": "copy",
+          "src_re": "^/src_path/(?P<path>.*)\.to_copy$",
+          "dst_re": "/dst_path/\g<path"},
+         {"action": "delete",
+          "src_re": "^/src_path/(?P<path>.*)\.to_delete$"}]
+fm = FileManager(rules=rules, auto_create=True)
+
+s = TaskScheduler(task=fm.task, delay=30, files=True, dirs=False)
+
+event_map = EventMap({"IN_CLOSE_WRITE": s.schedule,
+                      "IN_DELETE": s.cancel,
+                      "IN_DELETE_SELF": s.cancel,
+                      "IN_MODIFY": s.cancel,
+                      "IN_MOVED_TO": s.schedule,
+                      "IN_UNMOUNT": s.cancel})
+watch = Watch(path="/src_path", event_map=event_map, rec=True, auto_add=True)
+
+# note that shutdown_timeout should be greater than the greatest scheduler delay,
+# otherwise pending tasks may get cancelled during shutdown.
+
+pyinotifyd_config = PyinotifydConfig(
+    watches=[watch], loglevel=logging.INFO, shutdown_timeout=35)
 ```
