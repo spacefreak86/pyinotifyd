@@ -319,12 +319,38 @@ class FileManager:
     def add_rule(self, *args, **kwargs):
         self._rules.append(Rule(*args, **kwargs))
 
-    async def set_mode_and_chown(self, path, mode, chown):
+    def _chmod_and_chown(self, path, mode, chown):
         if mode is not None:
             os.chmod(path, mode)
 
         if chown is not None:
             shutil.chown(path, *chown)
+
+    async def _set_mode_and_owner(self, path, rule):
+        if (rule.user is rule.group is None):
+            chown = None
+        else:
+            chown = (rule.user, rule.group)
+
+        work_on_dirs = not (rule.dirmode is chown is None)
+        work_on_files = not (rule.filemode is chown is None)
+
+        if work_on_dirs or work_on_files:
+            generator = [(os.path.dirname(path),
+                          [],
+                          [os.path.basename(path)])]
+            generator = os.walk(path)
+
+            for root, dirs, files in generator:
+                if work_on_dirs:
+                    for p in [os.path.join(root, d) for d in dirs]:
+                        self._chmod_and_chown(
+                            p, rule.dirmode, chown)
+
+                if work_on_files:
+                    for p in [os.path.join(root, f) for f in files]:
+                        self._chmod_and_chown(
+                            p, rule.filemode, chown)
 
     async def task(self, event, task_id):
         path = event.pathname
@@ -347,15 +373,24 @@ class FileManager:
                         f"unable to {rule.action} '{path}', "
                         f"resulting destination path is empty")
 
+                if os.path.exists(dst):
+                    raise RuntimeError(
+                        f"unable to move file from '{path} to '{dst}', "
+                        f"dstination path exists already")
+
                 dst_dir = os.path.dirname(dst)
                 if not os.path.isdir(dst_dir) and rule.auto_create:
                     self._log.info(
                         f"{task_id}: create directory '{dst_dir}'")
+                    first_subdir = dst_dir
+                    while not os.path.isdir(first_subdir):
+                        parent = os.path.dirname(first_subdir)
+                        if not os.path.isdir(parent):
+                            first_subdir = parent
+                        else:
+                            break
                     os.makedirs(dst_dir)
-                elif os.path.exists(dst):
-                    raise RuntimeError(
-                        f"unable to move file from '{path} to '{dst}', "
-                        f"dstination path exists already")
+                    await self._set_mode_and_owner(first_subdir, rule)
 
                 self._log.info(
                     f"{task_id}: {rule.action} '{path}' to '{dst}'")
@@ -368,32 +403,7 @@ class FileManager:
                 else:
                     os.rename(path, dst)
 
-                if (rule.user is rule.group is None):
-                    chown = None
-                else:
-                    chown = (rule.user, rule.group)
-
-                work_on_dirs = not (rule.dirmode is chown is None)
-                work_on_files = not (rule.filemode is chown is None)
-
-                if work_on_dirs or work_on_files:
-                    if os.path.isfile(dst):
-                        generator = [(os.path.dirname(dst),
-                                      [],
-                                      [os.path.basename(dst)])]
-                    else:
-                        generator = os.walk(path)
-
-                    for root, dirs, files in generator:
-                        if work_on_dirs:
-                            for path in [os.path.join(root, d) for d in dirs]:
-                                await self.set_mode_and_chown(
-                                    path, rule.dirmode, chown)
-
-                        if work_on_files:
-                            for path in [os.path.join(root, f) for f in files]:
-                                await self.set_mode_and_chown(
-                                    path, rule.filemode, chown)
+                await self._set_mode_and_owner(dst, rule)
 
             elif rule.action == "delete":
                 self._log.info(

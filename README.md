@@ -113,7 +113,7 @@ async def task(event, task_id):
 
 s = TaskScheduler(task=task, files=True, dirs=True)
 
-event_map = EventMap(default_task=task)
+event_map = EventMap(default_task=s.schedule)
 watch = Watch(path="/tmp", event_map=event_map, rec=True, auto_add=True)
 
 pyinotifyd_config = PyinotifydConfig(
@@ -125,8 +125,8 @@ pyinotifyd_config = PyinotifydConfig(
 s = ShellScheduler(
     cmd="/usr/local/sbin/task.sh {pathname}", files=True, dirs=False)
 
-event_map = EventMap({"IN_WRITE_CLOSE": s.schedule,
-                      "IN_DELETE": s.schedule})
+event_map = EventMap({"IN_WRITE_CLOSE": s.schedule})
+
 watch = Watch(path="/tmp", event_map=event_map, rec=True, auto_add=True)
 
 pyinotifyd_config = PyinotifydConfig(
