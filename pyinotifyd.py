@@ -128,9 +128,9 @@ class TaskScheduler:
 
         if path in self._tasks:
             task = self._tasks[path]
-            self._log.info(f"received event {maskname} on '{path}', "
-                           f"re-schedule task {task.task_id} "
-                           f"(delay={self._delay}s)")
+            self._log.info(
+                f"received event {maskname} on '{path}', "
+                f"re-schedule task {task.task_id} (delay={self._delay}s)")
             task.restart()
         else:
             task_id = str(uuid4())
@@ -150,8 +150,9 @@ class TaskScheduler:
         maskname = event.maskname.split("|", 1)[0]
         if path in self._tasks:
             task = self._tasks[path]
-            self._log.info(f"received event {maskname} on '{path}', "
-                           f"cancel scheduled task {task.task_id}")
+            self._log.info(
+                f"received event {maskname} on '{path}', "
+                f"cancel scheduled task {task.task_id}")
             task.cancel()
             del self._tasks[path]
 
@@ -183,8 +184,9 @@ class ShellScheduler(TaskScheduler):
 
 
 class EventMap:
-    flags = {**pyinotify.EventsCodes.OP_FLAGS,
-             **pyinotify.EventsCodes.EVENT_FLAGS}
+    flags = {
+        **pyinotify.EventsCodes.OP_FLAGS,
+        **pyinotify.EventsCodes.EVENT_FLAGS}
 
     def __init__(self, event_map=None, default_task=None):
         self._map = {}
@@ -253,8 +255,9 @@ class Watch:
             else:
                 mask = EventMap.flags[flag]
 
-        wm.add_watch(self.path, mask, rec=self.rec, auto_add=self.auto_add,
-                     do_glob=True)
+        wm.add_watch(
+            self.path, mask, rec=self.rec, auto_add=self.auto_add,
+            do_glob=True)
 
         return pyinotify.AsyncioNotifier(wm, loop, default_proc_fun=handler)
 
@@ -558,8 +561,10 @@ def main():
 
     for signame in ["SIGINT", "SIGTERM"]:
         loop.add_signal_handler(
-            getattr(signal, signame), lambda: asyncio.ensure_future(shutdown(
-                signame, notifiers, myname, timeout=cfg.shutdown_timeout)))
+            getattr(signal, signame),
+            lambda: asyncio.ensure_future(
+                shutdown(
+                    signame, notifiers, myname, timeout=cfg.shutdown_timeout)))
 
     loop.run_forever()
     loop.close()
