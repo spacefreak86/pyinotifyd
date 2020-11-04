@@ -66,7 +66,7 @@ class Rule:
 
 
 class FileManager:
-    def __init__(self, rules, logname=None):
+    def __init__(self, rules, logname="filemgr"):
         if not isinstance(rules, list):
             rules = [rules]
 

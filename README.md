@@ -44,7 +44,7 @@ rule = Rule(
 
 fm = FileManager(
     rules=[rule],
-    logname="FileManager")
+    logname="filemanager")
 ```
 FileManager provides a task **fm.task**.
 
@@ -60,7 +60,7 @@ s = TaskScheduler(
     files=True,
     dirs=False,
     delay=0,
-    logname="TaskScheduler")
+    logname="scheduler")
 ```
 TaskScheduler provides two tasks which can be bound to an event in an event map.
 * **s.schedule** 
@@ -115,7 +115,7 @@ pyinotifyd expects an instance of Pyinotifyd named **pyinotifyd** defined in the
 pyinotifyd = Pyinotifyd(
     watches=[watch],
     shutdown_timeout=30,
-    logname="Pyinotifyd")
+    logname="daemon")
 ```
 
 ### Logging

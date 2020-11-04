@@ -33,10 +33,10 @@ from pyinotifyd.watch import Watch, EventMap
 
 
 class Pyinotifyd:
-    def __init__(self, watches=[], shutdown_timeout=30, logname=None):
+    def __init__(self, watches=[], shutdown_timeout=30, logname="daemon"):
         self.set_watches(watches)
         self.set_shutdown_timeout(shutdown_timeout)
-        logname = (logname or "daemon")
+        logname = (logname or __name__)
         self._log = logging.getLogger(logname)
         self._loop = asyncio.get_event_loop()
         self._notifiers = []

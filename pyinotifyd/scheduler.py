@@ -20,7 +20,7 @@ from uuid import uuid4
 
 class _Task:
     def __init__(self, event, delay, task_id, task, callback=None,
-                 logname=None):
+                 logname="task"):
         self._event = event
         self._path = event.pathname
         self._delay = delay
@@ -59,7 +59,7 @@ class _Task:
 
 
 class TaskScheduler:
-    def __init__(self, task, files, dirs, delay=0, logname=None):
+    def __init__(self, task, files, dirs, delay=0, logname="sched"):
         assert callable(task), \
             f"task: expected callable, got {type(task)}"
         self._task = task
@@ -127,13 +127,12 @@ class TaskScheduler:
 
 
 class ShellScheduler(TaskScheduler):
-    def __init__(self, cmd, task=None, logname=None, *args, **kwargs):
+    def __init__(self, cmd, task=None, *args, **kwargs):
         assert isinstance(cmd, str), \
             f"cmd: expected {type('')}, got {type(cmd)}"
         self._cmd = cmd
 
-        logname = (logname or __name__)
-        super().__init__(*args, task=self.task, logname=logname, **kwargs)
+        super().__init__(*args, task=self.task, **kwargs)
 
     async def task(self, event, task_id):
         maskname = event.maskname.split("|", 1)[0]
