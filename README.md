@@ -29,7 +29,7 @@ A rule holds an *action* (move, copy or delete) and a regular expression *src_re
 If the action is copy or move, the destination path *dst_re* is mandatory and if *action* is delete and *rec* is set to True, non-empty directories will be deleted recursively.  
 With *auto_create* set to True, possibly missing subdirectories in *dst_re* are created automatically. Regex subgroups or named-subgroups may be used in *src_re* and *dst_re*.  
 Set the mode of moved/copied files/directories with *filemode* and *dirmode*. Ownership of moved/copied files/directories is set with *user* and *group*. Mode and ownership is also set to automatically created subdirectories.  
-Use *logname* in log messages.  
+Log messages with *logname*.  
 ```python
 rule = Rule(
     action="move",
@@ -53,7 +53,7 @@ pyinotifyd has different schedulers to schedule tasks with an optional delay. Th
 
 #### TaskScheduler
 TaskScheduler schedules *task* with an optional *delay* in seconds. Use the *files* and *dirs* arguments to schedule tasks only for files and/or directories. 
-Use *logname* in log messages. All arguments except for *task* are optional.
+Log messages with *logname*. All arguments except for *task* are optional.
 ```python
 s = TaskScheduler(
     task=task,
@@ -109,13 +109,47 @@ watch = Watch(
     auto_add=False)
 ```
 
-### PyinotifydConfig
-pyinotifyd expects an instance of PyinotifydConfig named **pyinotifyd_config** that holds its config options. The options are a list of *watches*, the *loglevel* (see https://docs.python.org/3/library/logging.html#levels) and the *shutdown_timeout*. pyinotifyd will wait *shutdown_timeout* seconds for pending tasks to complete during shutdown.
+### Pyinotifyd
+pyinotifyd expects an instance of Pyinotifyd named **pyinotifyd** defined in the config file. The options are a list of *watches* and the *shutdown_timeout*. pyinotifyd will wait *shutdown_timeout* seconds for pending tasks to complete during shutdown. Log messages with *logname*.
 ```python
-pyinotifyd_config = PyinotifydConfig(
+pyinotifyd = Pyinotifyd(
     watches=[watch],
-    loglevel=logging.INFO,
-    shutdown_timeout=30)
+    shutdown_timeout=30,
+    logname="Pyinotifyd")
+```
+
+### Logging
+Pythons [logging](https://docs.python.org/3/howto/logging.html) framework is used to log messages (see https://docs.python.org/3/howto/logging.html).  
+
+Configure the global loglevel. This is the default:
+```python
+logging.getLogger().setLevel(logging.WARNING)
+```
+It is possible to configure the loglevel per log name. This is an example for logname **TaskScheduler**:
+```python
+logging.getLogger("TaskScheduler").setLevel(logging.INFO)
+```
+
+#### Syslog
+Add this to your config file to send log messages to a local syslog server.
+```python
+# send log messages to the Unix socket of the syslog server.
+syslog = logging.handlers.SysLogHandler(
+    address="/dev/log")
+
+# set the log format of syslog messages
+log_format = "pyinotifyd/%(name)s: %(message)s"
+syslog.setFormatter(
+    logging.Formatter(formatter)
+
+# set the log level for syslog messages
+syslog.setLevel(logging.INFO)
+
+# enable syslog
+logging.getLogger().addHandler(syslog)
+
+# or enable syslog just for TaskScheduler
+logging.getLogger("TaskManager").addHandler(syslog)
 ```
 
 ### Autostart
@@ -151,7 +185,6 @@ watch = Watch(
 
 pyinotifyd_config = PyinotifydConfig(
     watches=[watch],
-    loglevel=logging.INFO,
     shutdown_timeout=5)
 ```
 
@@ -173,7 +206,6 @@ watch = Watch(
 
 pyinotifyd_config = PyinotifydConfig(
     watches=[watch],
-    loglevel=logging.INFO,
     shutdown_timeout=5)
 ```
 
@@ -227,6 +259,5 @@ watch = Watch(
 # otherwise pending tasks may get cancelled during shutdown.
 pyinotifyd_config = PyinotifydConfig(
     watches=[watch],
-    loglevel=logging.INFO,
     shutdown_timeout=35)
 ```

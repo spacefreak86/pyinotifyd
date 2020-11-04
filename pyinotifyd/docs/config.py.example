@@ -74,11 +74,10 @@
 #    auto_add=True)
 
 
-###############################
-#  Example pyinotifyd config  #
-###############################
+########################
+#  Example pyinotifyd  #
+########################
 
-#pyinotifyd_config = PyinotifydConfig(
+#pyinotifyd_config = Pyinotifyd(
 #    watches=[watch],
-#    loglevel=logging.INFO,
-#    shutdown_timeout=30)
+#    loglevel=logging.INFO)

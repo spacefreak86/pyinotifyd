@@ -11,7 +11,7 @@ setup(name = "pyinotifyd",
     license = "GPL 3",
     keywords = "inotify daemon",
     url = "https://github.com/spacefreak86/pyinotifyd",
-    py_modules = ["pyinotifyd"],
+    packages = ["pyinotifyd"],
     long_description = read_file("README.md"),
     long_description_content_type = "text/markdown",
     classifiers = [
@@ -31,10 +31,6 @@ setup(name = "pyinotifyd",
             "pyinotifyd=pyinotifyd:main"
         ]
     },
-    data_files = [
-        ("/etc/pyinotifyd", ["docs/config.py"]),
-        ("/usr/lib/systemd/system", ["misc/pyinotifyd.service"])
-    ],
     install_requires = ["pyinotify"],
     python_requires = ">=3.7"
 )
