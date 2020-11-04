@@ -319,14 +319,23 @@ class FileManager:
     def add_rule(self, *args, **kwargs):
         self._rules.append(Rule(*args, **kwargs))
 
-    async def _chmod_and_chown(self, path, mode, chown):
+    async def _chmod_and_chown(self, path, mode, chown, task_id):
         if mode is not None:
+            self._log.debug(f"{task_id}: chmod {oct(mode)} '{path}'")
             os.chmod(path, mode)
 
         if chown is not None:
+            changes = ""
+            if chown[0] is not None:
+                changes = chown[0]
+
+            if chown[1] is not None:
+                changes = f"{changes}:{chown[1]}"
+
+            self._log.debug(f"{task_id}: chown {changes} '{path}'")
             shutil.chown(path, *chown)
 
-    async def _set_mode_and_owner(self, path, rule):
+    async def _set_mode_and_owner(self, path, rule, task_id):
         if (rule.user is rule.group is None):
             chown = None
         else:
@@ -336,20 +345,20 @@ class FileManager:
         work_on_files = not (rule.filemode is chown is None)
 
         if os.path.isdir(path):
-            await self._chmod_and_chown(path, rule.dirmode, chown)
+            await self._chmod_and_chown(path, rule.dirmode, chown, task_id)
             if work_on_dirs or work_on_files:
                 for root, dirs, files in os.walk(path):
                     if work_on_dirs:
                         for p in [os.path.join(root, d) for d in dirs]:
                             await self._chmod_and_chown(
-                                p, rule.dirmode, chown)
+                                p, rule.dirmode, chown, task_id)
 
                     if work_on_files:
                         for p in [os.path.join(root, f) for f in files]:
                             await self._chmod_and_chown(
-                                p, rule.filemode, chown)
+                                p, rule.filemode, chown, task_id)
         else:
-            await self._chmod_and_chown(path, rule.filemode, chown)
+            await self._chmod_and_chown(path, rule.filemode, chown, task_id)
 
     async def task(self, event, task_id):
         path = event.pathname
@@ -369,13 +378,13 @@ class FileManager:
                 dst = rule.src_re.sub(rule.dst_re, path)
                 if not dst:
                     raise RuntimeError(
-                        f"unable to {rule.action} '{path}', "
+                        f"{task_id}: unable to {rule.action} '{path}', "
                         f"resulting destination path is empty")
 
                 if os.path.exists(dst):
                     raise RuntimeError(
-                        f"unable to move file from '{path} to '{dst}', "
-                        f"dstination path exists already")
+                        f"{task_id}: unable to move file from '{path} "
+                        f"to '{dst}', dstination path exists already")
 
                 dst_dir = os.path.dirname(dst)
                 if not os.path.isdir(dst_dir) and rule.auto_create:
@@ -389,7 +398,7 @@ class FileManager:
                         else:
                             break
                     os.makedirs(dst_dir)
-                    await self._set_mode_and_owner(first_subdir, rule)
+                    await self._set_mode_and_owner(first_subdir, rule, task_id)
 
                 self._log.info(
                     f"{task_id}: {rule.action} '{path}' to '{dst}'")
@@ -402,7 +411,7 @@ class FileManager:
                 else:
                     os.rename(path, dst)
 
-                await self._set_mode_and_owner(dst, rule)
+                await self._set_mode_and_owner(dst, rule, task_id)
 
             elif rule.action == "delete":
                 self._log.info(
