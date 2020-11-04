@@ -71,14 +71,15 @@ TaskScheduler provides two tasks which can be bound to an event in an event map.
 #### ShellScheduler
 ShellScheduler schedules Shell command *cmd*. The placeholders **{maskname}**, **{pathname}** and **{src_pathname}** are replaced with the actual values of the event. ShellScheduler has the same optional arguments as TaskScheduler and provides the same tasks.
 ```python
-s1 = ShellScheduler(cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
+s1 = ShellScheduler(
+    cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
 ```
 ### Event maps
 EventMap maps event types to tasks. It is possible to set a list of tasks to run multiple tasks on a single event. If the task of an event type is set to None, it is ignored. 
 This is an example:
 ```python
 event_map = EventMap({
-	"IN_CLOSE_NOWRITE": [s.schedule, s1.schedule],
+        "IN_CLOSE_NOWRITE": [s.schedule, s1.schedule],
         "IN_CLOSE_WRITE": s.schedule})
 ```
 The following event types are available:
@@ -209,7 +210,7 @@ s = TaskScheduler(
     dirs=False)
 
 event_map = EventMap({
-	"IN_CLOSE_WRITE": s.schedule,
+        "IN_CLOSE_WRITE": s.schedule,
         "IN_DELETE": s.cancel,
         "IN_DELETE_SELF": s.cancel,
         "IN_MODIFY": s.cancel,
