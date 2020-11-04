@@ -319,7 +319,7 @@ class FileManager:
     def add_rule(self, *args, **kwargs):
         self._rules.append(Rule(*args, **kwargs))
 
-    def _chmod_and_chown(self, path, mode, chown):
+    async def _chmod_and_chown(self, path, mode, chown):
         if mode is not None:
             os.chmod(path, mode)
 
@@ -335,22 +335,21 @@ class FileManager:
         work_on_dirs = not (rule.dirmode is chown is None)
         work_on_files = not (rule.filemode is chown is None)
 
-        if work_on_dirs or work_on_files:
-            generator = [(os.path.dirname(path),
-                          [],
-                          [os.path.basename(path)])]
-            generator = os.walk(path)
+        if os.path.isdir(path):
+            await self._chmod_and_chown(path, rule.dirmode, chown)
+            if work_on_dirs or work_on_files:
+                for root, dirs, files in os.walk(path):
+                    if work_on_dirs:
+                        for p in [os.path.join(root, d) for d in dirs]:
+                            await self._chmod_and_chown(
+                                p, rule.dirmode, chown)
 
-            for root, dirs, files in generator:
-                if work_on_dirs:
-                    for p in [os.path.join(root, d) for d in dirs]:
-                        self._chmod_and_chown(
-                            p, rule.dirmode, chown)
-
-                if work_on_files:
-                    for p in [os.path.join(root, f) for f in files]:
-                        self._chmod_and_chown(
-                            p, rule.filemode, chown)
+                    if work_on_files:
+                        for p in [os.path.join(root, f) for f in files]:
+                            await self._chmod_and_chown(
+                                p, rule.filemode, chown)
+        else:
+            await self._chmod_and_chown(path, rule.filemode, chown)
 
     async def task(self, event, task_id):
         path = event.pathname
