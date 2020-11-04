@@ -26,8 +26,8 @@ async def task(event, task_id):
 FileManager moves, copy or deletes files and/or directories following a list of *rules*. 
 
 A rule holds an *action* (move, copy or delete) and a regular expression *src_re*. The FileManager task will be executed if *src_re* matches the path of an event. 
-If the action is copy or move, the destination path *dst_re* is mandatory and if *action* is delete and *rec* is set to True, non-empty directories will be deleted recursively. 
-With *auto_create* set to True, possibly missing subdirectories in *dst_re* are created automatically. Regex subgroups or named-subgroups may be used in *src_re* and *dst_re*. Use *logname* in log messages. 
+If the action is copy or move, the destination path *dst_re* is mandatory and if *action* is delete and *rec* is set to True, non-empty directories will be deleted recursively.  
+With *auto_create* set to True, possibly missing subdirectories in *dst_re* are created automatically. Regex subgroups or named-subgroups may be used in *src_re* and *dst_re*. Use *logname* in log messages.  
 The optional *filemode*, *dirmode*, *user* and *group* arguments are applied to every file and/or directory that is processed by FileManager. That includes automatically created subdirectories.
 ```python
 rule = Rule(
