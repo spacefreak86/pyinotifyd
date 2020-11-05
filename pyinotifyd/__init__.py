@@ -195,7 +195,6 @@ def main():
     try:
         config = {}
         exec(f"from {myname}.scheduler import *", config)
-        exec(f"from {myname}.filemanager import *", config)
         with open(args.config, "r") as c:
             exec(c.read(), globals(), config)
         daemon = config[f"{myname}"]
