@@ -16,6 +16,15 @@ pyinotifyd --install
 pyinotifyd --uninstall
 ```
 
+### Autostart
+```sh
+# start pyinotifyd at boot time
+systemctl enable pyinotifyd.service
+
+# start the daemon immediately
+systemctl start pyinotifyd.service
+```
+
 ## Configuration
 The config file **/etc/pyinotifyd/config.py** is written in Python syntax. pyinotifyd reads and executes its content, that means you can add your custom Python code to the config file.
 
@@ -157,16 +166,6 @@ logging.getLogger().addHandler(syslog)
 
 # or enable syslog just for TaskScheduler
 logging.getLogger("TaskManager").addHandler(syslog)
-```
-
-### Autostart
-pyinotifyd provides a systemd service file.
-```sh
-# start pyinotifyd at boot time
-systemctl enable pyinotifyd.service
-
-# start the daemon immediately
-systemctl start pyinotifyd.service
 ```
 
 ## Examples
