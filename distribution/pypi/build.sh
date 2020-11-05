@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
-script_dir="$(dirname "$(readlink -f -- "$BASH_SOURCE")")"
-pkg_dir="$(realpath "${script_dir}/../..")"
-setup="$(which python) setup.py"
+
+PYTHON=$(which python)
+
+script_dir=$(dirname "$(readlink -f -- "$BASH_SOURCE")")
+pkg_dir=$(realpath "${script_dir}"/../..)
+
 cd "${pkg_dir}"
-${setup} clean
-${setup} sdist bdist_wheel
+${PYTHON} setup.py clean
+${PYTHON} setup.py sdist bdist_wheel
