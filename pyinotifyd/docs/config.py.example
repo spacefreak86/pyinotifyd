@@ -78,6 +78,6 @@
 #  Example pyinotifyd  #
 ########################
 
-#pyinotifyd_config = Pyinotifyd(
-#    watches=[watch],
-#    loglevel=logging.INFO)
+pyinotifyd = Pyinotifyd(
+    watches=[],
+    shutdown_timeout=30)
