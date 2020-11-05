@@ -19,7 +19,7 @@ import os
 import shutil
 import sys
 
-SYSTEMD_PATH = "/usr/lib/systemd/system"
+SYSTEMD_PATH = "/lib/systemd/system"
 
 
 def _check_root():
@@ -77,9 +77,9 @@ def install(name):
             logging.error(f"unable to copy config file to {dst}: {e}")
             sys.exit(4)
         else:
-            logging.info("example config file copied to {dst}")
+            logging.info(f"example config file copied to {dst}")
 
-    logging.info("{name} successfully installed")
+    logging.info(f"{name} successfully installed")
 
 
 def uninstall(name):
@@ -105,4 +105,4 @@ def uninstall(name):
         logging.warning(
             f"config dir {config_dir} still exists, please delete manually")
 
-    logging.info("{name} successfully uninstalled")
+    logging.info(f"{name} successfully uninstalled")
