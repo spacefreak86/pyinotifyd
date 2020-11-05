@@ -14,12 +14,6 @@
 # along with pyinotifyd.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-__all__ = [
-    "Pyinotifyd",
-    "filemanager",
-    "scheduler",
-    "watch"]
-
 import argparse
 import asyncio
 import logging
@@ -28,10 +22,10 @@ import pyinotify
 import signal
 import sys
 
-from pyinotifyd.version import __version__ as version
 from pyinotifyd.watch import Watch, EventMap
-from pyinotifyd.install import install_systemd_service
-from pyinotifyd.install import uninstall_systemd_service
+from pyinotifyd._install import install, uninstall
+
+__version__ = "0.0.1"
 
 
 class Pyinotifyd:
@@ -166,10 +160,10 @@ def main():
     root_logger.addHandler(ch)
 
     if args.install:
-        sys.exit(install_systemd_service(myname))
+        sys.exit(install(myname))
 
     if args.uninstall:
-        sys.exit(uninstall_systemd_service(myname))
+        sys.exit(uninstall(myname))
 
     try:
         config = {}
