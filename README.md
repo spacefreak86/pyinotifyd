@@ -51,7 +51,7 @@ rule = Rule(
 
 fm = FileManager(
     rules=[rule],
-    logname="filemanager")
+    logname="filemgr")
 ```
 FileManager provides a task **fm.task**.
 
@@ -67,7 +67,7 @@ s = TaskScheduler(
     files=True,
     dirs=False,
     delay=0,
-    logname="scheduler")
+    logname="sched")
 ```
 TaskScheduler provides two tasks which can be bound to an event in an event map.
 * **s.schedule** 
