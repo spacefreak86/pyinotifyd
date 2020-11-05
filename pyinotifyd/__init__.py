@@ -59,10 +59,11 @@ class Pyinotifyd:
 
     def start(self, loop=None):
         assert len(self._watches) > 0, \
-            "pyinotifyd: unable to start, no watches set"
+            "pyinotifyd: unable to start, no watches configured"
         if not loop:
             loop = self._loop
 
+        self._log.info("starting")
         for watch in self._watches:
             self._log.info(f"start watching '{watch.path}' for inotify events")
             self._notifiers.append(watch.event_notifier(self._wm, loop))
