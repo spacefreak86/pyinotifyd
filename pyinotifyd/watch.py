@@ -100,16 +100,8 @@ class Watch:
 
     def event_notifier(self, wm, loop=asyncio.get_event_loop()):
         handler = pyinotify.ProcessEvent()
-        mask = False
-        for flag, values in self.event_map.items():
-            setattr(handler, f"process_{flag}", _TaskList(values).execute)
-            if mask:
-                mask = mask | EventMap.flags[flag]
-            else:
-                mask = EventMap.flags[flag]
-
         wm.add_watch(
-            self.path, mask, rec=self.rec, auto_add=self.auto_add,
+            self.path, pyinotify.ALL_EVENTS, rec=self.rec, auto_add=self.auto_add,
             do_glob=True)
 
         return pyinotify.AsyncioNotifier(wm, loop, default_proc_fun=handler)

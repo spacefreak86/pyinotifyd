@@ -5,6 +5,7 @@ After=fs.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/pyinotifyd
+ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=300
 
 [Install]

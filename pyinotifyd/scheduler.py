@@ -57,7 +57,7 @@ class _Task:
         self.cancel()
         self.start()
 
-    def task_id():
+    def task_id(self):
         return self._task_id
 
 

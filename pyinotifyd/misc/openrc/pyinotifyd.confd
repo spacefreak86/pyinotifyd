@@ -4,5 +4,8 @@
 # USER="daemon"
 # USER="daemon:nobody"
 
-# Optional parameters for pymodmilter
+# Set the shutdown timeout
+# SHUTDOWN_TIMEOUT=300
+
+# Optional command line options
 # PYINOTIFYD_OPTS=""

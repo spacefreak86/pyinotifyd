@@ -2,14 +2,16 @@
 
 user=${USER:-root}
 pyinotifyd_opts="${PYINOTIFYD_OPTS:-}"
+shutdown_timeout="${SHUTDOWN_TIMEOUT:-300}"
 
 pidfile="/run/${RC_SVCNAME}.pid"
 command="/usr/bin/pyinotifyd"
 command_args="${pyinotifyd_opts}"
 command_background=true
 start_stop_daemon_args="--user ${user}"
+retry="SIGTERM/${shutdown_timeout}"
 
-extra_commands="configtest"
+extra_commands="configtest reload"
 
 depend() {
 	need net
@@ -43,4 +45,10 @@ stop_pre() {
 	if [ "${RC_CMD}" == "restart" ]; then
 		checkconfig || return $?
 	fi
+}
+
+reload() {
+	ebegin "Reloading ${SVCNAME}"
+	start-stop-daemon --signal HUP --pidfile "${pidfile}"
+	eend $?
 }
