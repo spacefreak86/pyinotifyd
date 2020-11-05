@@ -1,3 +1,3 @@
 include LICENSE README.md
-recursive-include pyinotifyd/docs *
-recursive-include pyinotifyd/misc *
+recursive-include docs *
+recursive-include misc *

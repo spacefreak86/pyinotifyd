@@ -30,6 +30,8 @@ import sys
 
 from pyinotifyd.version import __version__ as version
 from pyinotifyd.watch import Watch, EventMap
+from pyinotifyd.install import install_systemd_service
+from pyinotifyd.install import uninstall_systemd_service
 
 
 class Pyinotifyd:
@@ -110,29 +112,42 @@ def main():
     parser.add_argument(
         "-c",
         "--config",
-        help=f"path to config file (defaults to /etc/{myname}/config.py)",
+        help=f"path to config file (default: /etc/{myname}/config.py)",
         default=f"/etc/{myname}/config.py")
     parser.add_argument(
         "-d",
         "--debug",
         help="log debugging messages",
         action="store_true")
-    parser.add_argument(
-        "-e",
-        "--events",
-        help="show event types and exit",
+
+    exclusive = parser.add_mutually_exclusive_group()
+    exclusive.add_argument(
+        "-l",
+        "--list",
+        help="show all usable event types and exit",
         action="store_true")
-    parser.add_argument(
+    exclusive.add_argument(
         "-v",
         "--version",
         help="show version and exit",
+        action="store_true")
+    exclusive.add_argument(
+        "-i",
+        "--install",
+        help="install systemd service file",
+        action="store_true")
+    exclusive.add_argument(
+        "-u",
+        "--uninstall",
+        help="uninstall systemd service file",
         action="store_true")
     args = parser.parse_args()
 
     if args.version:
         print(f"{myname} ({version})")
         sys.exit(0)
-    elif args.events:
+
+    if args.list:
         types = "\n".join(EventMap.flags.keys())
         print(types)
         sys.exit(0)
@@ -146,9 +161,15 @@ def main():
     root_logger.setLevel(loglevel)
 
     ch = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s - %(message)s")
+    formatter = logging.Formatter("%(levelname)s: %(message)s")
     ch.setFormatter(formatter)
     root_logger.addHandler(ch)
+
+    if args.install:
+        sys.exit(install_systemd_service(myname))
+
+    if args.uninstall:
+        sys.exit(uninstall_systemd_service(myname))
 
     try:
         config = {}
