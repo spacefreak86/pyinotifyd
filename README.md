@@ -50,32 +50,6 @@ async def task(event, task_id):
     logging.info(f"{task_id}: execute example task: {event}")
 ```
 
-#### FileManager
-FileManager moves, copy or deletes files and/or directories following a list of *rules*. 
-
-A rule holds an *action* (move, copy or delete) and a regular expression *src_re*. The FileManager task will be executed if *src_re* matches the path of an event. 
-If the action is copy or move, the destination path *dst_re* is mandatory and if *action* is delete and *rec* is set to True, non-empty directories will be deleted recursively.  
-With *auto_create* set to True, possibly missing subdirectories in *dst_re* are created automatically. Regex subgroups or named-subgroups may be used in *src_re* and *dst_re*.  
-Set the mode of moved/copied files/directories with *filemode* and *dirmode*. Ownership of moved/copied files/directories is set with *user* and *group*. Mode and ownership is also set to automatically created subdirectories.  
-Log messages with *logname*.  
-```python
-rule = Rule(
-    action="move",
-    src_re="^/src_path/(?P<path>.*).to_move$",
-    dst_re="/dst_path/\g<path>",
-    auto_create=False,
-    rec=False,
-    filemode=None,
-    dirmode=None,
-    user=None,
-    group=None)
-
-fm = FileManager(
-    rules=[rule],
-    logname="filemgr")
-```
-FileManager provides a task **fm.task**.
-
 ### Schedulers
 pyinotifyd has different schedulers to schedule tasks with an optional delay. The advantages of using a scheduler are consistent logging and the possibility to cancel delayed tasks. Furthermore, schedulers have the ability to differentiate between files and directories.
 
@@ -95,6 +69,8 @@ TaskScheduler provides two tasks which can be bound to an event in an event map.
   Schedule a task. If there is already a scheduled task, it will be canceled first.
 * **s.cancel** 
   Cancel a scheduled task.
+* **s.log** 
+  Just log the event.
 
 #### ShellScheduler
 ShellScheduler schedules Shell command *cmd*. The placeholders **{maskname}**, **{pathname}** and **{src_pathname}** are replaced with the actual values of the event. ShellScheduler has the same optional arguments as TaskScheduler and provides the same tasks.
@@ -102,6 +78,32 @@ ShellScheduler schedules Shell command *cmd*. The placeholders **{maskname}**, *
 s1 = ShellScheduler(
     cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
 ```
+
+#### FileManagerScheduler
+FileManagerScheduler moves, copy or deletes files and/or directories following a list of *rules*. It has the same optional arguments as TaskScheduler and provides the same tasks.
+
+A FileManagerRule holds an *action* (move, copy or delete) and a regular expression *src_re*. The FileManagerScheduler task will be executed if *src_re* matches the path of an event. 
+If the action is copy or move, the destination path *dst_re* is mandatory and if *action* is delete and *rec* is set to True, non-empty directories will be deleted recursively.  
+With *auto_create* set to True, possibly missing subdirectories in *dst_re* are created automatically. Regex subgroups or named-subgroups may be used in *src_re* and *dst_re*.  
+Set the mode of moved/copied files/directories with *filemode* and *dirmode*. Ownership of moved/copied files/directories is set with *user* and *group*. Mode and ownership is also set to automatically created subdirectories.  
+Log messages with *logname*.  
+```python
+rule = FileManagerRule(
+    action="move",
+    src_re="^/src_path/(?P<path>.*).to_move$",
+    dst_re="/dst_path/\g<path>",
+    auto_create=False,
+    rec=False,
+    filemode=None,
+    dirmode=None,
+    user=None,
+    group=None)
+
+s = FileManagerScheduler(
+    rules=[rule],
+    logname="filemgr")
+```
+
 ### Event maps
 EventMap maps event types to tasks. It is possible to set a list of tasks to run multiple tasks on a single event. If the task of an event type is set to None, it is ignored. 
 This is an example:
@@ -229,7 +231,7 @@ pyinotifyd_config = PyinotifydConfig(
 
 ### Move, copy or delete newly created files after a delay
 ```python
-move_rule = Rule(
+move_rule = FileManagerRule(
     action="move",
     src_re="^/src_path/(?P<path>.*)\.to_move$",
     dst_re="/dst_path/\g<path>",
@@ -237,7 +239,7 @@ move_rule = Rule(
     filemode=0o644,
     dirmode=0o755)
 
-copy_rule = Rule(
+copy_rule = FileManagerRule(
     action="copy",
     src_re="^/src_path/(?P<path>.*)\.to_copy$",
     dst_re="/dst_path/\g<path>",
@@ -245,12 +247,12 @@ copy_rule = Rule(
     filemode=0o644,
     dirmode=0o755)
 
-delete_rule = Rule(
+delete_rule = FileManagerRule(
     action="delete",
     src_re="^/src_path/(?P<path>.*)\.to_delete$",
     rec=False)
 
-fm = FileManager(
+fm = FileManagerScheduler(
     rules=[move_rule, copy_rule, delete_rule])
 
 s = TaskScheduler(

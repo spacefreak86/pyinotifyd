@@ -13,37 +13,33 @@
 #    dirs=False)
 
 
-#####################################################
-#  Example usage of TaskScheduler with FileManager  #
-#####################################################
-
-#rules=[{
-#    "action": "move",
-#    "src_re": r"^(?P<path>.*)",
-#    "dst_re": r"\g<path>.processed",
-#    "auto_create": True,
-#    "filemode": 0o755,
-#    "dirmode": 0o644,
-#    "user": "root",
-#    "goup": "root"}]
-#
-#fm = FileManager(
-#    rules=rules)
-#
-#s = TaskScheduler(
-#    task=fm.task,
-#    delay=10,
-#    files=True,
-#    dirs=False)
-
-
 #####################################
 #  Example usage of ShellScheduler  #
 #####################################
 
 #cmd = "/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}"
-#s = ShellScheduler(
-#    cmd=cmd)
+#s = ShellScheduler(cmd=cmd)
+
+
+###########################################
+#  Example usage of FileManagerScheduler  #
+###########################################
+
+#rule = Rule(
+#    action="move",
+#    src_re="^(?P<path>.*)",
+#    dst_re="\g<path>.processed",
+#    auto_create=True,
+#    filemode=0o755,
+#    dirmode=0o644,
+#    user="root",
+#    goup="root")
+#
+#s = FileManagerScheduler(
+#    rules=[rule],
+#    delay=10,
+#    files=True,
+#    dirs=False)
 
 
 ###################
