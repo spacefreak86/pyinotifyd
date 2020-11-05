@@ -57,6 +57,9 @@ class _Task:
         self.cancel()
         self.start()
 
+    def task_id():
+        return self._task_id
+
 
 class TaskScheduler:
     def __init__(self, task, files, dirs, delay=0, logname="sched"):
@@ -97,9 +100,10 @@ class TaskScheduler:
 
         if path in self._tasks:
             task = self._tasks[path]
+            task_id = task.task_id()
             self._log.info(
                 f"received event {maskname} on '{path}', "
-                f"re-schedule task {task.task_id} (delay={self._delay}s)")
+                f"re-schedule task {task_id} (delay={self._delay}s)")
             task.restart()
         else:
             task_id = str(uuid4())
@@ -119,9 +123,10 @@ class TaskScheduler:
         maskname = event.maskname.split("|", 1)[0]
         if path in self._tasks:
             task = self._tasks[path]
+            task_id = task.task_id()
             self._log.info(
                 f"received event {maskname} on '{path}', "
-                f"cancel scheduled task {task.task_id}")
+                f"cancel scheduled task {task_id}")
             task.cancel()
             del self._tasks[path]
 
