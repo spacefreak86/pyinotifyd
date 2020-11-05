@@ -6,7 +6,14 @@ A daemon to monitore filesystems events with inotify on Linux and execute tasks 
 
 ## Installation
 ```sh
+# install pyinotifyd with pip
 pip install pyinotifyd
+
+# install systemd service and create config directory
+pyinotifyd --install
+
+# uninstall systemd service
+pyinotifyd --uninstall
 ```
 
 ## Configuration
