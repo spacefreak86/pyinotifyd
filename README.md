@@ -18,7 +18,7 @@ pyinotifyd --uninstall
 
 ### Autostart
 ```sh
-# start pyinotifyd at boot time
+# start the daemon at boot time
 systemctl enable pyinotifyd.service
 
 # start the daemon immediately
