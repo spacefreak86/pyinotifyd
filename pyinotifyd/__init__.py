@@ -25,7 +25,7 @@ import sys
 from pyinotifyd.watch import Watch, EventMap
 from pyinotifyd._install import install, uninstall
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 class Pyinotifyd:
