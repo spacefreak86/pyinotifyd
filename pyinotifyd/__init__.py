@@ -63,7 +63,7 @@ class Pyinotifyd:
 
         self._log.info("starting")
         if len(self._watches) == 0:
-            self._log.warning("no watches configured, the daemon will not do anything"
+            self._log.warning("no watches configured, the daemon will not do anything")
         for watch in self._watches:
             self._log.info(f"start watching '{watch.path}' for inotify events")
             self._notifiers.append(watch.event_notifier(self._wm, loop))
