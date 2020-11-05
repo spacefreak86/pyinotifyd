@@ -17,12 +17,24 @@ pyinotifyd --uninstall
 ```
 
 ### Autostart
+The following init systems are supported.
+
+#### systemd
 ```sh
 # start the daemon at boot time
 systemctl enable pyinotifyd.service
 
 # start the daemon immediately
 systemctl start pyinotifyd.service
+```
+
+#### OpenRC (Gentoo)
+```sh
+# start the daemon at boot time
+rc-update add pyinotifyd default
+
+# start the daemon immediately
+rc-service pyinotifyd start 
 ```
 
 ## Configuration
