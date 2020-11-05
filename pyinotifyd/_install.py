@@ -49,32 +49,32 @@ def _check_openrc():
 
 def _copy_missing_file(src, dst):
     if os.path.exists(dst):
-        logging.info(f"=> file {dst} already installed")
+        logging.info(f" => file {dst} already installed")
     else:
         try:
-            logging.info(f"=> install file {dst}")
+            logging.info(f" => install file {dst}")
             shutil.copy2(src, dst)
         except Exception as e:
-            logging.error(f"=> unable to install file {dst}: {e}")
+            logging.error(f" => unable to install file {dst}: {e}")
 
 
 def _delete_present_file(f):
     if os.path.isfile(f):
         try:
-            logging.info(f"=> uninstall file {f}")
+            logging.info(f" => uninstall file {f}")
             os.remove(f)
         except Exception as e:
-            logging.error(f"=> unable to uninstall file {f}: {e}")
+            logging.error(f" => unable to uninstall file {f}: {e}")
 
 
 def _warn_exists(path):
     if os.path.isdir(path):
         logging.warning(
-            f"=> directory {path} is still present, "
+            f" => directory {path} is still present, "
             f"you have to remove it manually")
     else:
         logging.warning(
-            f"=> file {path} is still present, "
+            f" => file {path} is still present, "
             f"you have to remove it manually")
 
 
@@ -99,13 +99,13 @@ def install(name):
     logging.info("install configuration file")
     config_dir = f"/etc/{name}"
     if os.path.isdir(config_dir):
-        logging.info(f"=> directory {config_dir} exists already")
+        logging.info(f" => directory {config_dir} exists already")
     else:
         try:
-            logging.info(f"=> create directory {config_dir}")
+            logging.info(f" => create directory {config_dir}")
             os.mkdir(config_dir)
         except Exception as e:
-            logging.error(f"=> unable to create directory {config_dir}: {e}")
+            logging.error(f" => unable to create directory {config_dir}: {e}")
             sys.exit(3)
 
     files = [
