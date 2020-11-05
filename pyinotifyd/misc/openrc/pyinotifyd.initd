@@ -1,0 +1,46 @@
+#!/sbin/openrc-run
+
+user=${USER:-root}
+pyinotifyd_opts="${PYINOTIFYD_OPTS:-}"
+
+pidfile="/run/${RC_SVCNAME}.pid"
+command="/usr/bin/pyinotifyd"
+command_args="${pyinotifyd_opts}"
+command_background=true
+start_stop_daemon_args="--user ${user}"
+
+extra_commands="configtest"
+
+depend() {
+	need net
+	before mta
+}
+
+checkconfig() {
+	output=$(${command} ${command_args} -t 2>&1)
+	ret=$?
+	if [ $ret -ne 0 ]; then
+		eerror "${SVCNAME} has detected an error in your configuration:"
+		printf "%s\n" "${output}"
+	fi
+
+	return $ret
+}
+
+configtest() {
+	ebegin "Checking ${SVCNAME} configuration"
+	checkconfig
+	eend $?
+}
+
+start_pre() {
+	if [ "${RC_CMD}" != "restart" ]; then
+		checkconfig || return $?
+	fi
+}
+
+stop_pre() {
+	if [ "${RC_CMD}" == "restart" ]; then
+		checkconfig || return $?
+	fi
+}

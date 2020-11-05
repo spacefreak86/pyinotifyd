@@ -1,0 +1,8 @@
+# /etc/conf.d/pyinotifyd: config file for /etc/init.d/pyinotifyd
+
+# Start the daemon as the user. You can optionally append a group name here also.
+# USER="daemon"
+# USER="daemon:nobody"
+
+# Optional parameters for pymodmilter
+# PYINOTIFYD_OPTS=""

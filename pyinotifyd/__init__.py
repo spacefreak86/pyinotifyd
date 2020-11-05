@@ -135,6 +135,12 @@ def main():
         "--uninstall",
         help="uninstall systemd service file",
         action="store_true")
+    exclusive.add_argument(
+        "-t",
+        "--configtest",
+        help="test config and exit",
+        action="store_true")
+
     args = parser.parse_args()
 
     if args.version:
@@ -178,6 +184,10 @@ def main():
     except Exception as e:
         logging.exception(f"config file '{args.config}': {e}")
         sys.exit(1)
+
+    if args.configtest:
+        logging.info("config file ok")
+        sys.exit(0)
 
     if args.debug:
         root_logger.setLevel(loglevel)

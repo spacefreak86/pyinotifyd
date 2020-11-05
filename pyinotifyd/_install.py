@@ -20,6 +20,7 @@ import shutil
 import sys
 
 SYSTEMD_PATH = "/lib/systemd/system"
+OPENRC = "/sbin/openrc"
 
 
 def _check_root():
@@ -31,7 +32,50 @@ def _check_root():
 
 
 def _check_systemd():
-    return os.path.isdir(SYSTEMD_PATH)
+    systemd = os.path.isdir(SYSTEMD_PATH)
+    if systemd:
+        logging.info("systemd detected")
+
+    return systemd
+
+
+def _check_openrc():
+    openrc = os.path.isfile(OPENRC) and os.access(OPENRC, os.X_OK)
+    if openrc:
+        logging.info("openrc detected")
+
+    return openrc
+
+
+def _copy_missing_file(src, dst):
+    if os.path.exists(dst):
+        logging.info(f"=> file {dst} already installed")
+    else:
+        try:
+            logging.info(f"=> install file {dst}")
+            shutil.copy2(src, dst)
+        except Exception as e:
+            logging.error(f"=> unable to install file {dst}: {e}")
+
+
+def _delete_present_file(f):
+    if os.path.isfile(f):
+        try:
+            logging.info(f"=> uninstall file {f}")
+            os.remove(f)
+        except Exception as e:
+            logging.error(f"=> unable to uninstall file {f}: {e}")
+
+
+def _warn_exists(path):
+    if os.path.isdir(path):
+        logging.warning(
+            f"=> directory {path} is still present, "
+            f"you have to remove it manually")
+    else:
+        logging.warning(
+            f"=> file {path} is still present, "
+            f"you have to remove it manually")
 
 
 def install(name):
@@ -40,44 +84,34 @@ def install(name):
 
     pkg_dir = os.path.dirname(__file__)
 
-    if not _check_systemd():
-        logging.warning(
-            "systemd service file will not be installed,"
-            "because systemd is not installed")
-    else:
+    if _check_systemd():
         dst = f"{SYSTEMD_PATH}/{name}.service"
-        src = f"{pkg_dir}/misc/{name}.service"
-        try:
-            shutil.copy2(src, dst)
-        except Exception as e:
-            logging.error(f"unable to copy systemd service file: {e}")
-        else:
-            logging.info("systemd service file installed")
+        src = f"{pkg_dir}/misc/systemd/{name}.service"
+        _copy_missing_file(src, dst)
 
+    if _check_openrc():
+        files = [
+            (f"{pkg_dir}/misc/openrc/{name}.initd", f"/etc/init.d/{name}"),
+            (f"{pkg_dir}/misc/openrc/{name}.confd", f"/etc/conf.d/{name}")]
+        for src, dst in files:
+            _copy_missing_file(src, dst)
+
+    logging.info("install configuration file")
     config_dir = f"/etc/{name}"
     if os.path.isdir(config_dir):
-        logging.info(f"config dir {config_dir} exists")
+        logging.info(f"=> directory {config_dir} exists already")
     else:
         try:
+            logging.info(f"=> create directory {config_dir}")
             os.mkdir(config_dir)
         except Exception as e:
-            logging.error(f"unable to create config dir {config_dir}: {e}")
+            logging.error(f"=> unable to create directory {config_dir}: {e}")
             sys.exit(3)
-        else:
-            logging.info(f"config dir {config_dir} created")
 
-    dst = f"{config_dir}/config.py"
-    src = f"{pkg_dir}/docs/config.py.example"
-    if os.path.exists(dst):
-        logging.info(f"config file {dst} exists")
-    else:
-        try:
-            shutil.copy2(src, dst)
-        except Exception as e:
-            logging.error(f"unable to copy config file to {dst}: {e}")
-            sys.exit(4)
-        else:
-            logging.info(f"example config file copied to {dst}")
+    files = [
+        (f"{pkg_dir}/docs/config.py.example", f"{config_dir}/config.py")]
+    for src, dst in files:
+        _copy_missing_file(src, dst)
 
     logging.info(f"{name} successfully installed")
 
@@ -87,22 +121,12 @@ def uninstall(name):
         sys.exit(2)
 
     if _check_systemd():
-        path = f"{SYSTEMD_PATH}/{name}.service"
+        _delete_present_file(f"{SYSTEMD_PATH}/{name}.service")
 
-        if not os.path.exists(path):
-            logging.info("systemd service is not installed")
-        else:
-            try:
-                os.remove(path)
-            except Exception as e:
-                logging.error(f"unable to delete: {e}")
-                sys.exit(3)
-            else:
-                logging.info("systemd service file uninstalled")
+    if _check_openrc():
+        _delete_present_file(f"/etc/init.d/{name}")
+        _warn_exists(f"/etc/conf.d/{name}")
 
-    config_dir = f"/etc/{name}"
-    if os.path.isdir(config_dir):
-        logging.warning(
-            f"config dir {config_dir} still exists, please delete manually")
+    _warn_exists(f"/etc/{name}")
 
     logging.info(f"{name} successfully uninstalled")
