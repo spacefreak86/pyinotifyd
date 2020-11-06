@@ -79,12 +79,12 @@ class Watch:
     def __init__(self, path, event_map, rec=False, auto_add=False):
         assert isinstance(path, str), \
             f"path: expected {type('')}, got {type(path)}"
-        self.path = path
+        self._path = path
 
         if isinstance(event_map, EventMap):
-            self.event_map = event_map
+            self._event_map = event_map
         elif isinstance(event_map, dict):
-            self.event_map = EventMap(event_map)
+            self._event_map = EventMap(event_map)
         else:
             raise AssertionError(
                 f"event_map: expected {type(EventMap)} or {type(dict)}, "
@@ -92,15 +92,21 @@ class Watch:
 
         assert isinstance(rec, bool), \
             f"rec: expected {type(bool)}, got {type(rec)}"
-        self.rec = rec
+        self._rec = rec
 
         assert isinstance(auto_add, bool), \
             f"auto_add: expected {type(bool)}, got {type(auto_add)}"
-        self.auto_add = auto_add
+        self._auto_add = auto_add
+
+    def path(self):
+        return self._path
 
     def event_notifier(self, wm, loop=asyncio.get_event_loop()):
         handler = pyinotify.ProcessEvent()
-        wm.add_watch(self.path, pyinotify.ALL_EVENTS, rec=self.rec,
-                     auto_add=self.auto_add, do_glob=True)
+        for flag, values in self._event_map.items():
+            setattr(handler, f"process_{flag}", _TaskList(values).execute)
+
+        wm.add_watch(self._path, pyinotify.ALL_EVENTS, rec=self._rec,
+                     auto_add=self._auto_add, do_glob=True)
 
         return pyinotify.AsyncioNotifier(wm, loop, default_proc_fun=handler)

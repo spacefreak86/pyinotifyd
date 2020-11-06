@@ -37,7 +37,10 @@ class _Task:
 
     async def _start(self):
         if self._delay > 0:
-            await asyncio.sleep(self._delay)
+            try:
+                await asyncio.sleep(self._delay)
+            except asyncio.CancelledError:
+                return
 
         if self._callback is not None:
             self._callback(self._event)

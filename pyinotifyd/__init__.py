@@ -28,6 +28,18 @@ from pyinotifyd._install import install, uninstall
 __version__ = "0.0.2"
 
 
+def get_pyinotifyd_from_config(name, config_file):
+    config = {}
+    exec(f"from {name}.scheduler import *", config)
+    with open(config_file, "r") as c:
+        exec(c.read(), globals(), config)
+    daemon = config[f"{name}"]
+    assert isinstance(daemon, Pyinotifyd), \
+        f"{name}: expected {type(Pyinotifyd)}, " \
+        f"got {type(daemon)}"
+    return daemon
+
+
 class Pyinotifyd:
     def __init__(self, watches=[], shutdown_timeout=30, logname="daemon"):
         self.set_watches(watches)
@@ -37,7 +49,6 @@ class Pyinotifyd:
         self._loop = asyncio.get_event_loop()
         self._notifiers = []
         self._wm = pyinotify.WatchManager()
-        self._shutdown = False
 
     def set_watches(self, watches):
         if not isinstance(watches, list):
@@ -67,15 +78,31 @@ class Pyinotifyd:
             self._log.warning(
                 "no watches configured, the daemon will not do anything")
         for watch in self._watches:
-            self._log.info(f"start watching '{watch.path}' for inotify events")
+            self._log.info(
+                f"start listening for inotify events on '{watch.path()}'")
             self._notifiers.append(watch.event_notifier(self._wm, loop))
 
     def stop(self):
-        self._log.info("stop watching for inotify events")
+        self._log.info("stop listening for inotify events")
         for notifier in self._notifiers:
             notifier.stop()
 
         self._notifiers = []
+        return self._shutdown_timeout
+
+
+class DaemonInstance:
+    def __init__(self, instance, logname="daemon"):
+        self._instance = instance
+        self._shutdown = False
+        self._log = logging.getLogger(logname)
+        self._timeout = None
+
+    def start(self):
+        self._instance.start()
+
+    def stop(self):
+        self._timeout = self._instance.stop()
 
     def _get_pending_tasks(self):
         return [t for t in asyncio.all_tasks()
@@ -92,29 +119,48 @@ class Pyinotifyd:
         self.stop()
         pending = self._get_pending_tasks()
         if pending:
-            if self._shutdown_timeout > 0:
+            tasks_done = False
+            if self._timeout:
                 self._log.info(
-                    f"waiting {self._shutdown_timeout}s "
-                    f"for remaining tasks to complete")
+                    f"wait {self._timeout} seconds for {len(pending)} "
+                    f"remaining task(s) to complete")
                 try:
                     future = asyncio.gather(*pending)
-                    await asyncio.wait_for(future, self._shutdown_timeout)
-                    pending = None
+                    await asyncio.wait_for(future, self._timeout)
+                    tasks_done = True
                 except asyncio.TimeoutError:
-                    pending = self._get_pending_tasks()
+                    future.cancel()
+                    future.exception()
 
-            if pending:
-                self._log.warning("forcefully terminate remaining tasks")
-                future = asyncio.gather(*pending)
-                future.cancel()
-                future.exception()
+            if not tasks_done:
+                self._log.warning(f"terminate remaining task(s)")
+                for task in pending:
+                    task.cancel()
+
+                try:
+                    await asyncio.gather(*pending)
+                except asyncio.CancelledError:
+                    pass
 
         asyncio.get_event_loop().stop()
         self._shutdown = False
         self._log.info("shutdown complete")
 
-    async def _reload(self, signame):
+    async def reload(self, signame, name, config):
+        if self._shutdown:
+            self._log.info(
+                f"got signal {signame}, but shutdown already in progress")
+            return
+
         self._log.info(f"got signal {signame}, reload config")
+        try:
+            instance = get_pyinotifyd_from_config(name, config)
+        except Exception as e:
+            logging.exception(f"unable to reload config '{config}': {e}")
+        else:
+            self.stop()
+            self._instance = instance
+            self.start()
 
 
 def main():
@@ -193,14 +239,8 @@ def main():
         sys.exit(uninstall(myname))
 
     try:
-        config = {}
-        exec(f"from {myname}.scheduler import *", config)
-        with open(args.config, "r") as c:
-            exec(c.read(), globals(), config)
-        daemon = config[f"{myname}"]
-        assert isinstance(daemon, Pyinotifyd), \
-            f"{myname}: expected {type(Pyinotifyd)}, " \
-            f"got {type(daemon)}"
+        pyinotifyd = get_pyinotifyd_from_config(myname, args.config)
+        daemon = DaemonInstance(pyinotifyd)
     except Exception as e:
         logging.exception(f"config file '{args.config}': {e}")
         sys.exit(1)
@@ -225,7 +265,7 @@ def main():
     loop.add_signal_handler(
         getattr(signal, "SIGHUP"),
         lambda: asyncio.ensure_future(
-            daemon.reload(signame)))
+            daemon.reload(signame, myname, args.config)))
 
     daemon.start()
     loop.run_forever()
