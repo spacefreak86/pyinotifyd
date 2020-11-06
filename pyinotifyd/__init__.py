@@ -133,7 +133,7 @@ class DaemonInstance:
                     future.exception()
 
             if not tasks_done:
-                self._log.warning(f"terminate remaining task(s)")
+                self._log.warning("terminate remaining task(s)")
                 for task in pending:
                     task.cancel()
 
@@ -242,7 +242,11 @@ def main():
         pyinotifyd = get_pyinotifyd_from_config(myname, args.config)
         daemon = DaemonInstance(pyinotifyd)
     except Exception as e:
-        logging.exception(f"config file '{args.config}': {e}")
+        if args.debug:
+            logging.exception(f"config file: {e}")
+        else:
+            logging.error(f"config file: {e}")
+
         sys.exit(1)
 
     if args.configtest:

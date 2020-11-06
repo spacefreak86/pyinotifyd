@@ -162,8 +162,8 @@ class ShellScheduler(TaskScheduler):
                 "{src_pathname}", shell_quote(src_pathname))
 
         self._log.info(f"{task_id}: execute shell command: {cmd}")
-        proc = await asyncio.create_subprocess_shell(cmd)
-        await proc.communicate()
+        proc = await asyncio.shield(asyncio.create_subprocess_shell(cmd))
+        await asyncio.shield(proc.communicate())
 
 
 class FileManagerRule:
@@ -246,24 +246,33 @@ class FileManagerScheduler(TaskScheduler):
         else:
             chown = (rule.user, rule.group)
 
+        if os.path.isidr(path):
+            mode = rule.dirmode
+        else:
+            mode = rule.filemode
+
+        await asyncio.shield(
+            self._chmod_and_chown(path, mode, chown, task_id))
+
+        if not os.path.isdir(path):
+            return
+
         work_on_dirs = not (rule.dirmode is chown is None)
         work_on_files = not (rule.filemode is chown is None)
 
-        if os.path.isdir(path):
-            await self._chmod_and_chown(path, rule.dirmode, chown, task_id)
-            if work_on_dirs or work_on_files:
-                for root, dirs, files in os.walk(path):
-                    if work_on_dirs:
-                        for p in [os.path.join(root, d) for d in dirs]:
-                            await self._chmod_and_chown(
-                                p, rule.dirmode, chown, task_id)
+        if work_on_dirs or work_on_files:
+            for root, dirs, files in os.walk(path):
+                if work_on_dirs:
+                    for p in [os.path.join(root, d) for d in dirs]:
+                        await asyncio.shield(
+                            self._chmod_and_chown(
+                                p, rule.dirmode, chown, task_id))
 
-                    if work_on_files:
-                        for p in [os.path.join(root, f) for f in files]:
-                            await self._chmod_and_chown(
-                                p, rule.filemode, chown, task_id)
-        else:
-            await self._chmod_and_chown(path, rule.filemode, chown, task_id)
+                if work_on_files:
+                    for p in [os.path.join(root, f) for f in files]:
+                        await asyncio.shield(
+                            self._chmod_and_chown(
+                                p, rule.filemode, chown, task_id))
 
     def _get_rule_by_event(self, event):
         rule = None
@@ -313,7 +322,8 @@ class FileManagerScheduler(TaskScheduler):
                         else:
                             break
                     os.makedirs(dst_dir)
-                    await self._set_mode_and_owner(first_subdir, rule, task_id)
+                    await asyncio.shield(
+                        self._set_mode_and_owner(first_subdir, rule, task_id))
 
                 self._log.info(
                     f"{task_id}: {rule.action} '{path}' to '{dst}'")
@@ -326,7 +336,8 @@ class FileManagerScheduler(TaskScheduler):
                 else:
                     os.rename(path, dst)
 
-                await self._set_mode_and_owner(dst, rule, task_id)
+                await asyncio.shield(
+                    self._set_mode_and_owner(dst, rule, task_id))
 
             elif rule.action == "delete":
                 self._log.info(
