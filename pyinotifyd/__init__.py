@@ -117,6 +117,16 @@ class DaemonInstance:
         self._shutdown = True
         self._log.info(f"got signal {signame}, shutdown")
         self.stop()
+
+        pending = self._get_pending_tasks()
+        for task in pending:
+            task.cancel()
+
+        try:
+            await asyncio.gather(*pending)
+        except asyncio.CancelledError:
+            pass
+
         pending = self._get_pending_tasks()
         if pending:
             tasks_done = False
@@ -133,14 +143,8 @@ class DaemonInstance:
                     future.exception()
 
             if not tasks_done:
-                self._log.warning("terminate remaining task(s)")
-                for task in pending:
-                    task.cancel()
-
-                try:
-                    await asyncio.gather(*pending)
-                except asyncio.CancelledError:
-                    pass
+                self._log.warning(
+                    f"terminate {len(pending)} remaining task(s)")
 
         asyncio.get_event_loop().stop()
         self._shutdown = False

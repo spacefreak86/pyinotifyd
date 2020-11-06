@@ -302,12 +302,12 @@ class FileManagerScheduler(TaskScheduler):
                 dst = rule.src_re.sub(rule.dst_re, path)
                 if not dst:
                     raise RuntimeError(
-                        f"{task_id}: unable to {rule.action} '{path}', "
+                        f"unable to {rule.action} '{path}', "
                         f"resulting destination path is empty")
 
                 if os.path.exists(dst):
                     raise RuntimeError(
-                        f"{task_id}: unable to move file from '{path} "
+                        f"unable to move file from '{path} "
                         f"to '{dst}', dstination path exists already")
 
                 dst_dir = os.path.dirname(dst)
@@ -321,35 +321,47 @@ class FileManagerScheduler(TaskScheduler):
                             first_subdir = parent
                         else:
                             break
-                    os.makedirs(dst_dir)
-                    await asyncio.shield(
-                        self._set_mode_and_owner(first_subdir, rule, task_id))
+
+                    try:
+                        os.makedirs(dst_dir)
+                        await asyncio.shield(
+                            self._set_mode_and_owner(
+                                first_subdir, rule, task_id))
+                    except Exception as e:
+                        raise RuntimeError(e)
 
                 self._log.info(
                     f"{task_id}: {rule.action} '{path}' to '{dst}'")
-                if rule.action == "copy":
-                    if os.path.isdir(path):
-                        shutil.copytree(path, dst)
+
+                try:
+                    if rule.action == "copy":
+                        if os.path.isdir(path):
+                            shutil.copytree(path, dst)
+                        else:
+                            shutil.copy2(path, dst)
+
                     else:
-                        shutil.copy2(path, dst)
+                        os.rename(path, dst)
 
-                else:
-                    os.rename(path, dst)
-
-                await asyncio.shield(
-                    self._set_mode_and_owner(dst, rule, task_id))
+                    await asyncio.shield(
+                        self._set_mode_and_owner(dst, rule, task_id))
+                except Exception as e:
+                    raise RuntimeError(e)
 
             elif rule.action == "delete":
                 self._log.info(
                     f"{task_id}: {rule.action} '{path}'")
-                if os.path.isdir(path):
-                    if rule.rec:
-                        shutil.rmtree(path)
-                    else:
-                        shutil.rmdir(path)
+                try:
+                    if os.path.isdir(path):
+                        if rule.rec:
+                            shutil.rmtree(path)
+                        else:
+                            shutil.rmdir(path)
 
-                else:
-                    os.remove(path)
+                    else:
+                        os.remove(path)
+                except Exception as e:
+                    raise RuntimeError(e)
 
         except RuntimeError as e:
             self._log.error(f"{task_id}: {e}")
