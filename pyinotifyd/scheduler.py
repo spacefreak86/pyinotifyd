@@ -36,21 +36,20 @@ class _Task:
         self._log = logging.getLogger((logname or __name__))
 
     async def _start(self):
-        if self._delay > 0:
-            try:
+        try:
+            if self._delay > 0:
                 await asyncio.sleep(self._delay)
-            except asyncio.CancelledError:
-                self._log.info(f"task {self._task_id} cancelled")
-                return
 
-        if self._callback is not None:
-            self._callback(self._event)
+            if self._callback is not None:
+                self._callback(self._event)
 
-        self._task = None
+            self._task = None
 
-        self._log.info(f"execute task {self._task_id}")
-        await asyncio.shield(self._job(self._event, self._task_id))
-        self._log.info(f"task {self._task_id} finished")
+            self._log.info(f"execute task {self._task_id}")
+            await self._job(self._event, self._task_id)
+            self._log.info(f"task {self._task_id} finished")
+        except asyncio.CancelledError:
+            self._log.info(f"task {self._task_id} cancelled")
 
     def start(self):
         if self._task is None:
@@ -164,8 +163,8 @@ class ShellScheduler(TaskScheduler):
 
         self._log.info(f"{task_id}: execute shell command: {cmd}")
         try:
-            proc = await asyncio.shield(asyncio.create_subprocess_shell(cmd))
-            await asyncio.shield(proc.communicate())
+            proc = await asyncio.create_subprocess_shell(cmd)
+            await proc.communicate()
         except Exception as e:
             self._log.error(f"{task_id}: {e}")
 
@@ -255,8 +254,7 @@ class FileManagerScheduler(TaskScheduler):
         else:
             mode = rule.filemode
 
-        await asyncio.shield(
-            self._chmod_and_chown(path, mode, chown, task_id))
+        await self._chmod_and_chown(path, mode, chown, task_id)
 
         if not os.path.isdir(path):
             return
@@ -268,15 +266,13 @@ class FileManagerScheduler(TaskScheduler):
             for root, dirs, files in os.walk(path):
                 if work_on_dirs:
                     for p in [os.path.join(root, d) for d in dirs]:
-                        await asyncio.shield(
-                            self._chmod_and_chown(
-                                p, rule.dirmode, chown, task_id))
+                        await self._chmod_and_chown(
+                            p, rule.dirmode, chown, task_id)
 
                 if work_on_files:
                     for p in [os.path.join(root, f) for f in files]:
-                        await asyncio.shield(
-                            self._chmod_and_chown(
-                                p, rule.filemode, chown, task_id))
+                        await self._chmod_and_chown(
+                            p, rule.filemode, chown, task_id)
 
     def _get_rule_by_event(self, event):
         rule = None
@@ -328,9 +324,8 @@ class FileManagerScheduler(TaskScheduler):
 
                     try:
                         os.makedirs(dst_dir)
-                        await asyncio.shield(
-                            self._set_mode_and_owner(
-                                first_subdir, rule, task_id))
+                        await self._set_mode_and_owner(
+                            first_subdir, rule, task_id)
                     except Exception as e:
                         raise RuntimeError(e)
 
@@ -347,8 +342,7 @@ class FileManagerScheduler(TaskScheduler):
                     else:
                         os.rename(path, dst)
 
-                    await asyncio.shield(
-                        self._set_mode_and_owner(dst, rule, task_id))
+                    await self._set_mode_and_owner(dst, rule, task_id)
                 except Exception as e:
                     raise RuntimeError(e)
 
