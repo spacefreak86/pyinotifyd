@@ -40,6 +40,7 @@ class _Task:
             try:
                 await asyncio.sleep(self._delay)
             except asyncio.CancelledError:
+                self._log.info(f"task {self._task_id} cancelled")
                 return
 
         if self._callback is not None:
@@ -162,8 +163,11 @@ class ShellScheduler(TaskScheduler):
                 "{src_pathname}", shell_quote(src_pathname))
 
         self._log.info(f"{task_id}: execute shell command: {cmd}")
-        proc = await asyncio.shield(asyncio.create_subprocess_shell(cmd))
-        await asyncio.shield(proc.communicate())
+        try:
+            proc = await asyncio.shield(asyncio.create_subprocess_shell(cmd))
+            await asyncio.shield(proc.communicate())
+        except Exception as e:
+            self._log.error(f"{task_id}: {e}")
 
 
 class FileManagerRule:
