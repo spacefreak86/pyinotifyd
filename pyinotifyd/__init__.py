@@ -121,11 +121,7 @@ class DaemonInstance:
         pending = self._get_pending_tasks()
         if pending:
             if self._timeout:
-                try:
-                    future = asyncio.shield(asyncio.gather(*pending))
-                except asyncio.CancelledError:
-                    pass
-
+                future = asyncio.gather(*pending)
                 self._log.info(
                     f"wait {self._timeout} seconds for {len(pending)} "
                     f"remaining task(s) to complete")
@@ -133,22 +129,21 @@ class DaemonInstance:
                     await asyncio.wait_for(future, self._timeout)
                     pending = []
                 except asyncio.TimeoutError:
+                    future.cancel()
+                    future.exception()
                     self._log.warning(
-                        f"shutdown timeout exceeded")
-
-                    pending = [t for t in pending if not t.done()]
-
-            if pending:
+                        "shutdown timeout exceeded, remaining task(s) killed")
+            else:
                 self._log.warning(
                     f"cancel {len(pending)} remaining task(s)")
 
                 for task in pending:
                     task.cancel()
 
-                #try:
-                #    await asyncio.gather(*pending)
-                #except asyncio.CancelledError:
-                #    pass
+                try:
+                    await asyncio.gather(*pending)
+                except asyncio.CancelledError:
+                    pass
 
         asyncio.get_event_loop().stop()
         self._shutdown = False

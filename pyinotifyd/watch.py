@@ -76,11 +76,10 @@ class _TaskList:
 
 
 class Watch:
-    def __init__(self, path, event_map, rec=False, auto_add=False):
+    def __init__(self, path, event_map, rec=False, auto_add=False,
+                 logname="watch"):
         assert isinstance(path, str), \
             f"path: expected {type('')}, got {type(path)}"
-        self._path = path
-
         if isinstance(event_map, EventMap):
             self._event_map = event_map
         elif isinstance(event_map, dict):
@@ -92,10 +91,11 @@ class Watch:
 
         assert isinstance(rec, bool), \
             f"rec: expected {type(bool)}, got {type(rec)}"
-        self._rec = rec
-
         assert isinstance(auto_add, bool), \
             f"auto_add: expected {type(bool)}, got {type(auto_add)}"
+
+        self._path = path
+        self._rec = rec
         self._auto_add = auto_add
 
     def path(self):
