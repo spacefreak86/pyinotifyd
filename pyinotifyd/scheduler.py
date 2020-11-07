@@ -276,7 +276,7 @@ class FileManagerScheduler(TaskScheduler):
                 if os.path.exists(dst):
                     raise RuntimeError(
                         f"unable to move file from '{path} "
-                        f"to '{dst}', dstination path exists already")
+                        f"to '{dst}', destination path exists already")
 
                 dst_dir = os.path.dirname(dst)
                 if not os.path.isdir(dst_dir) and rule.auto_create:

@@ -18,7 +18,6 @@ import argparse
 import asyncio
 import logging
 import logging.handlers
-import pyinotify
 import signal
 import sys
 
@@ -28,18 +27,6 @@ from pyinotifyd._install import install, uninstall
 __version__ = "0.0.2"
 
 
-def get_pyinotifyd_from_config(name, config_file):
-    config = {}
-    exec(f"from {name}.scheduler import *", config)
-    with open(config_file, "r") as c:
-        exec(c.read(), globals(), config)
-    daemon = config[f"{name}"]
-    assert isinstance(daemon, Pyinotifyd), \
-        f"{name}: expected {type(Pyinotifyd)}, " \
-        f"got {type(daemon)}"
-    return daemon
-
-
 class Pyinotifyd:
     def __init__(self, watches=[], shutdown_timeout=30, logname="daemon"):
         self.set_watches(watches)
@@ -47,8 +34,6 @@ class Pyinotifyd:
         logname = (logname or __name__)
         self._log = logging.getLogger(logname)
         self._loop = asyncio.get_event_loop()
-        self._notifiers = []
-        self._wm = pyinotify.WatchManager()
 
     def set_watches(self, watches):
         if not isinstance(watches, list):
@@ -58,7 +43,8 @@ class Pyinotifyd:
             assert isinstance(watch, Watch), \
                 f"watches: expected {type(Watch)}, got {type(watch)}"
 
-        self._watches = watches
+        self._watches = []
+        self._watches.extend(watches)
 
     def add_watch(self, *args, **kwargs):
         self._watches.append(Watch(*args, **kwargs))
@@ -73,22 +59,35 @@ class Pyinotifyd:
         if not loop:
             loop = self._loop
 
-        self._log.info("starting")
         if len(self._watches) == 0:
             self._log.warning(
                 "no watches configured, the daemon will not do anything")
+
         for watch in self._watches:
             self._log.info(
                 f"start listening for inotify events on '{watch.path()}'")
-            self._notifiers.append(watch.event_notifier(self._wm, loop))
+            watch.start(loop)
 
     def stop(self):
-        self._log.info("stop listening for inotify events")
-        for notifier in self._notifiers:
-            notifier.stop()
+        for watch in self._watches:
+            self._log.info(f"stop listening for inotify events on '{watch.path()}'")
+            watch.stop()
 
-        self._notifiers = []
         return self._shutdown_timeout
+
+
+def get_pyinotifyd_from_config(name, config_file):
+    config = {}
+    exec(f"from {name} import Pyinotifyd", {}, config)
+    exec(f"from {name}.scheduler import *", {}, config)
+    exec(f"from {name}.watch import EventMap, Watch", {}, config)
+    with open(config_file, "r") as c:
+        exec(c.read(), {}, config)
+    daemon = config[f"{name}"]
+    assert isinstance(daemon, Pyinotifyd), \
+        f"{name}: expected {type(Pyinotifyd)}, " \
+        f"got {type(daemon)}"
+    return daemon
 
 
 class DaemonInstance:
@@ -96,13 +95,12 @@ class DaemonInstance:
         self._instance = instance
         self._shutdown = False
         self._log = logging.getLogger(logname)
-        self._timeout = None
 
     def start(self):
         self._instance.start()
 
     def stop(self):
-        self._timeout = self._instance.stop()
+        return self._instance.stop()
 
     def _get_pending_tasks(self):
         return [t for t in asyncio.all_tasks()
@@ -110,23 +108,23 @@ class DaemonInstance:
 
     async def shutdown(self, signame):
         if self._shutdown:
-            self._log.info(
+            self._log.warning(
                 f"got signal {signame}, but shutdown already in progress")
             return
 
         self._shutdown = True
         self._log.info(f"got signal {signame}, shutdown")
-        self.stop()
+        timeout = self.stop()
 
         pending = self._get_pending_tasks()
         if pending:
-            if self._timeout:
+            if timeout:
                 future = asyncio.gather(*pending)
                 self._log.info(
-                    f"wait {self._timeout} seconds for {len(pending)} "
+                    f"wait {timeout} seconds for {len(pending)} "
                     f"remaining task(s) to complete")
                 try:
-                    await asyncio.wait_for(future, self._timeout)
+                    await asyncio.wait_for(future, timeout)
                     pending = []
                 except asyncio.TimeoutError:
                     future.cancel()
@@ -149,7 +147,7 @@ class DaemonInstance:
         self._shutdown = False
         self._log.info("shutdown complete")
 
-    async def reload(self, signame, name, config):
+    async def reload(self, signame, name, config, debug=False):
         if self._shutdown:
             self._log.info(
                 f"got signal {signame}, but shutdown already in progress")
@@ -161,6 +159,8 @@ class DaemonInstance:
         except Exception as e:
             logging.exception(f"unable to reload config '{config}': {e}")
         else:
+            if debug:
+                logging.getLogger().setLevel(logging.DEBUG)
             self.stop()
             self._instance = instance
             self.start()
@@ -258,6 +258,7 @@ def main():
 
     if args.debug:
         root_logger.setLevel(loglevel)
+
     formatter = logging.Formatter(
         f"%(asctime)s - {myname}/%(name)s - %(levelname)s - %(message)s")
     ch.setFormatter(formatter)
@@ -272,7 +273,7 @@ def main():
     loop.add_signal_handler(
         getattr(signal, "SIGHUP"),
         lambda: asyncio.ensure_future(
-            daemon.reload(signame, myname, args.config)))
+            daemon.reload("SIGHUP", myname, args.config, args.debug)))
 
     daemon.start()
     loop.run_forever()
