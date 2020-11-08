@@ -73,7 +73,6 @@ class EventMap(ProcessEvent):
             for flag, tasks in event_map.items():
                 self.set_task(flag, tasks)
 
-
     def set_task(self, flag, tasks):
         assert flag in EventMap.flags, \
             f"event_map: invalid flag: {flag}"

@@ -95,8 +95,16 @@ class TaskScheduler(Task):
 
         self._tasks = {}
 
-    async def _schedule_task(self, event, task_id, task_state):
+    async def _schedule_task(self, event, task_id, task_state, restart):
         if self._delay > 0:
+            if restart:
+                action = "re-schedule"
+            else:
+                action = "schedule"
+
+            self._log.info(
+                f"{action} task ({_event_to_str(event)}, "
+                f"task_id={task_state.task_id}, delay={self._delay})")
             await asyncio.sleep(self._delay)
 
         task_state.waiting = False
@@ -113,25 +121,26 @@ class TaskScheduler(Task):
                 (event.dir and self._dirs)):
             return
 
-        self.cancel(event)
+        if event.pathname in self._tasks:
+            self.cancel(event, silent=True)
+            restart = True
+        else:
+            restart = False
 
         task_state = _TaskState()
         task_state.task_id, task_state.task = super().start(
-            event, task_state, *args, **kwargs)
+            event, task_state, restart, *args, **kwargs)
         self._tasks[event.pathname] = task_state
-        if self._delay > 0:
-            self._log.info(
-                f"schedule task ({_event_to_str(event)}, "
-                f"task_id={task_state.task_id}, delay={self._delay})")
 
-    def cancel(self, event):
+    def cancel(self, event, silent=False):
         if event.pathname in self._tasks:
             task_state = self._tasks[event.pathname]
 
             if task_state.waiting:
-                self._log.info(
-                    f"cancel task ({_event_to_str(event)}, "
-                    f"task_id={task_state.task_id})")
+                if not silent:
+                    self._log.info(
+                        f"cancel task ({_event_to_str(event)}, "
+                        f"task_id={task_state.task_id})")
                 task_state.task.cancel()
                 del self._tasks[event.pathname]
 
