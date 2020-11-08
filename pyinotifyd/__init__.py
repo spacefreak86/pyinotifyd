@@ -60,8 +60,8 @@ class EventMap(ProcessEvent):
         **pyinotify.EventsCodes.OP_FLAGS,
         **pyinotify.EventsCodes.EVENT_FLAGS}
 
-    def __init__(self, event_map=None, default_task=None, *args, **kwargs):
-        super().__init__(*args, *kwargs)
+    def my_init(self, event_map=None, default_task=None):
+        self._map = {}
 
         if default_task is not None:
             for flag in EventMap.flags:
@@ -71,9 +71,10 @@ class EventMap(ProcessEvent):
             assert isinstance(event_map, dict), \
                 f"event_map: expected {type(dict)}, got {type(event_map)}"
             for flag, tasks in event_map.items():
-                self.set(flag, tasks)
+                self.set_task(flag, tasks)
 
-    def set(self, flag, tasks):
+
+    def set_task(self, flag, tasks):
         assert flag in EventMap.flags, \
             f"event_map: invalid flag: {flag}"
         if tasks is not None:
@@ -86,10 +87,16 @@ class EventMap(ProcessEvent):
                     task = Task(task)
 
                 task_instances.append(task)
-            setattr(self, f"process_{flag}", _TaskList(task_instances).execute)
+            self._map[flag] = _TaskList(task_instances).execute
 
-        elif hasattr(self, flag):
-            delattr(self, f"process_{flag}")
+        elif flag in self._map:
+            del self._map[flag]
+
+    def process_default(self, event):
+        logging.debug(f"received {event}")
+        maskname = event.maskname.split("|")[0]
+        if maskname in self._map:
+            self._map[maskname](event)
 
 
 class Watch:
@@ -101,7 +108,8 @@ class Watch:
         if isinstance(event_map, EventMap):
             self._event_map = event_map
         else:
-            self._event_map = EventMap(event_map, default_task)
+            self._event_map = EventMap(
+                event_map=event_map, default_task=default_task)
 
         assert isinstance(rec, bool), \
             f"rec: expected {type(bool)}, got {type(rec)}"
@@ -149,7 +157,7 @@ class Pyinotifyd:
         config = {}
         name = Pyinotifyd.name
         exec("import logging", {}, config)
-        exec(f"from {name} import Pyinotifyd, EventMap, Watch", {}, config)
+        exec(f"from {name} import Pyinotifyd, Watch", {}, config)
         exec(f"from {name}.scheduler import *", {}, config)
         with open(config_file, "r") as fh:
             exec(fh.read(), {}, config)

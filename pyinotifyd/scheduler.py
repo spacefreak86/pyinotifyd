@@ -72,7 +72,7 @@ class Cancel(Task):
 class _TaskState:
     task_id: str = ""
     task: asyncio.Task = None
-    waiting: bool = False
+    waiting: bool = True
 
 
 class TaskScheduler(Task):
@@ -97,17 +97,14 @@ class TaskScheduler(Task):
 
     async def _schedule_task(self, event, task_id, task_state):
         if self._delay > 0:
-            task_state.waiting = True
-            self._log.debug(
-                f"schedule task ({_event_to_str(event)}, "
-                f"task_id={task_id}, delay={self._delay})")
             await asyncio.sleep(self._delay)
-            task_state.waiting = False
 
-        self._log.debug(
+        task_state.waiting = False
+
+        self._log.info(
                 f"start task ({_event_to_str(event)}, task_id={task_id})")
         await self._delayed_task(event, task_id)
-        self._log.debug(
+        self._log.info(
                 f"task finished ({_event_to_str(event)}, task_id={task_id})")
         del self._tasks[event.pathname]
 
@@ -122,13 +119,17 @@ class TaskScheduler(Task):
         task_state.task_id, task_state.task = super().start(
             event, task_state, *args, **kwargs)
         self._tasks[event.pathname] = task_state
+        if self._delay > 0:
+            self._log.info(
+                f"schedule task ({_event_to_str(event)}, "
+                f"task_id={task_state.task_id}, delay={self._delay})")
 
     def cancel(self, event):
         if event.pathname in self._tasks:
             task_state = self._tasks[event.pathname]
 
             if task_state.waiting:
-                self._log.debug(
+                self._log.info(
                     f"cancel task ({_event_to_str(event)}, "
                     f"task_id={task_state.task_id})")
                 task_state.task.cancel()
