@@ -14,6 +14,11 @@
 # along with pyinotifyd.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+__all__ = [
+    "Pyinotifyd",
+    "daemon_from_config",
+]
+
 import argparse
 import asyncio
 import logging
@@ -28,12 +33,29 @@ __version__ = "0.0.2"
 
 
 class Pyinotifyd:
+    name = "pyinotifyd"
+
     def __init__(self, watches=[], shutdown_timeout=30, logname="daemon"):
         self.set_watches(watches)
         self.set_shutdown_timeout(shutdown_timeout)
         logname = (logname or __name__)
         self._log = logging.getLogger(logname)
         self._loop = asyncio.get_event_loop()
+
+    @staticmethod
+    def from_cfg_file(config_file):
+        config = {}
+        name = Pyinotifyd.name
+        exec(f"from {name} import Pyinotifyd", {}, config)
+        exec(f"from {name}.scheduler import *", {}, config)
+        exec(f"from {name}.watch import EventMap, Watch", {}, config)
+        with open(config_file, "r") as fh:
+            exec(fh.read(), {}, config)
+        instance = config[f"{name}"]
+        assert isinstance(instance, Pyinotifyd), \
+            f"{name}: expected {type(Pyinotifyd)}, " \
+            f"got {type(instance)}"
+        return instance
 
     def set_watches(self, watches):
         if not isinstance(watches, list):
@@ -70,24 +92,11 @@ class Pyinotifyd:
 
     def stop(self):
         for watch in self._watches:
-            self._log.info(f"stop listening for inotify events on '{watch.path()}'")
+            self._log.info(
+                f"stop listening for inotify events on '{watch.path()}'")
             watch.stop()
 
         return self._shutdown_timeout
-
-
-def get_pyinotifyd_from_config(name, config_file):
-    config = {}
-    exec(f"from {name} import Pyinotifyd", {}, config)
-    exec(f"from {name}.scheduler import *", {}, config)
-    exec(f"from {name}.watch import EventMap, Watch", {}, config)
-    with open(config_file, "r") as c:
-        exec(c.read(), {}, config)
-    daemon = config[f"{name}"]
-    assert isinstance(daemon, Pyinotifyd), \
-        f"{name}: expected {type(Pyinotifyd)}, " \
-        f"got {type(daemon)}"
-    return daemon
 
 
 class DaemonInstance:
@@ -147,17 +156,18 @@ class DaemonInstance:
         self._shutdown = False
         self._log.info("shutdown complete")
 
-    async def reload(self, signame, name, config, debug=False):
+    async def reload(self, signame, config_file, debug=False):
         if self._shutdown:
             self._log.info(
                 f"got signal {signame}, but shutdown already in progress")
             return
 
-        self._log.info(f"got signal {signame}, reload config")
+        self._log.info(f"got signal {signame}, reload config file")
         try:
-            instance = get_pyinotifyd_from_config(name, config)
+            instance = Pyinotifyd.from_cfg_file(config_file)
         except Exception as e:
-            logging.exception(f"unable to reload config '{config}': {e}")
+            logging.exception(
+                f"unable to reload config file '{config_file}': {e}")
         else:
             if debug:
                 logging.getLogger().setLevel(logging.DEBUG)
@@ -167,7 +177,7 @@ class DaemonInstance:
 
 
 def main():
-    myname = "pyinotifyd"
+    myname = Pyinotifyd.name
 
     parser = argparse.ArgumentParser(
         description=myname,
@@ -242,7 +252,7 @@ def main():
         sys.exit(uninstall(myname))
 
     try:
-        pyinotifyd = get_pyinotifyd_from_config(myname, args.config)
+        pyinotifyd = Pyinotifyd.from_cfg_file(args.config)
         daemon = DaemonInstance(pyinotifyd)
     except Exception as e:
         if args.debug:
