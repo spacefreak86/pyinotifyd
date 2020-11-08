@@ -14,6 +14,7 @@
 
 __all__ = [
     "Task",
+    "Cancel",
     "TaskScheduler",
     "ShellScheduler",
     "FileManagerRule",
@@ -53,8 +54,18 @@ class Task:
                 event, task_id, *args, **kwargs))
         return (task_id, task)
 
-    def log(self, event):
-        self._log.info(f"LOG: {event}")
+    def cancel(self, event):
+        pass
+
+
+class Cancel(Task):
+    def __init__(self, task):
+        assert issubclass(type(task), Task), \
+            f"task: expected {type(Task)}, got {type(task)}"
+        self._task = task
+
+    def start(self, event, *args, **kwargs):
+        self._task.cancel(event)
 
 
 @dataclass

@@ -15,23 +15,123 @@
 #
 
 __all__ = [
+    "EventMap"
+    "Watch",
     "Pyinotifyd",
     "DaemonInstance",
-    "main",
-    "scheduler",
-    "watch"]
+    "scheduler"]
 
 import argparse
 import asyncio
 import logging
 import logging.handlers
+import pyinotify
 import signal
 import sys
 
-from pyinotifyd.watch import EventMap, Watch
+from pyinotify import ProcessEvent
+
 from pyinotifyd._install import install, uninstall
+from pyinotifyd.scheduler import Task
 
 __version__ = "0.0.2"
+
+
+class _TaskList:
+    def __init__(self, tasks=[]):
+        if not isinstance(tasks, list):
+            tasks = [tasks]
+
+        self._tasks = tasks
+
+    def add(self, task):
+        self._tasks.append(task)
+
+    def remove(self, task):
+        self._tasks.remove(task)
+
+    def execute(self, event):
+        for task in self._tasks:
+            task.start(event)
+
+
+class EventMap(ProcessEvent):
+    flags = {
+        **pyinotify.EventsCodes.OP_FLAGS,
+        **pyinotify.EventsCodes.EVENT_FLAGS}
+
+    def __init__(self, event_map=None, default_task=None, *args, **kwargs):
+        super().__init__(*args, *kwargs)
+
+        if default_task is not None:
+            for flag in EventMap.flags:
+                self.set(flag, default_task)
+
+        if event_map is not None:
+            assert isinstance(event_map, dict), \
+                f"event_map: expected {type(dict)}, got {type(event_map)}"
+            for flag, tasks in event_map.items():
+                self.set(flag, tasks)
+
+    def set(self, flag, tasks):
+        assert flag in EventMap.flags, \
+            f"event_map: invalid flag: {flag}"
+        if tasks is not None:
+            if not isinstance(tasks, list):
+                tasks = [tasks]
+
+            task_instances = []
+            for task in tasks:
+                if not issubclass(type(task), Task):
+                    task = Task(task)
+
+                task_instances.append(task)
+            setattr(self, f"process_{flag}", _TaskList(task_instances).execute)
+
+        elif hasattr(self, flag):
+            delattr(self, f"process_{flag}")
+
+
+class Watch:
+    def __init__(self, path, event_map=None, default_task=None, rec=False,
+                 auto_add=False, logname="watch"):
+        assert isinstance(path, str), \
+            f"path: expected {type('')}, got {type(path)}"
+
+        if isinstance(event_map, EventMap):
+            self._event_map = event_map
+        else:
+            self._event_map = EventMap(event_map, default_task)
+
+        assert isinstance(rec, bool), \
+            f"rec: expected {type(bool)}, got {type(rec)}"
+        assert isinstance(auto_add, bool), \
+            f"auto_add: expected {type(bool)}, got {type(auto_add)}"
+        logname = (logname or __name__)
+
+        self._path = path
+        self._rec = rec
+        self._auto_add = auto_add
+
+        self._watch_manager = pyinotify.WatchManager()
+        self._notifier = None
+        self._log = logging.getLogger(logname)
+
+    def path(self):
+        return self._path
+
+    def start(self, loop=asyncio.get_event_loop()):
+        self._watch_manager.add_watch(self._path, pyinotify.ALL_EVENTS,
+                                      rec=self._rec, auto_add=self._auto_add,
+                                      do_glob=True)
+
+        self._notifier = pyinotify.AsyncioNotifier(
+            self._watch_manager, loop, default_proc_fun=self._event_map)
+
+    def stop(self):
+        self._notifier.stop()
+
+        self._notifier = None
 
 
 class Pyinotifyd:
@@ -48,10 +148,9 @@ class Pyinotifyd:
     def from_cfg_file(config_file):
         config = {}
         name = Pyinotifyd.name
-        exec(f"import logging", {}, config)
-        exec(f"from {name} import Pyinotifyd", {}, config)
+        exec("import logging", {}, config)
+        exec(f"from {name} import Pyinotifyd, EventMap, Watch", {}, config)
         exec(f"from {name}.scheduler import *", {}, config)
-        exec(f"from {name}.watch import *", {}, config)
         with open(config_file, "r") as fh:
             exec(fh.read(), {}, config)
         instance = config[f"{name}"]
