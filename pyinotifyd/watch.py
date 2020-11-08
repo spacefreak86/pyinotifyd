@@ -14,6 +14,10 @@
 # along with pyinotifyd.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+__all__ = [
+    "EventMap",
+    "Watch"]
+
 import asyncio
 import pyinotify
 

@@ -12,6 +12,13 @@
 # along with pyinotifyd.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+__all__ = [
+    "Task",
+    "TaskScheduler",
+    "ShellScheduler",
+    "FileManagerRule",
+    "FileManagerScheduler"]
+
 import asyncio
 import logging
 import os
@@ -24,7 +31,7 @@ from shlex import quote as shell_quote
 from uuid import uuid4
 
 
-def event_to_str(event):
+def _event_to_str(event):
     return f"maskname={event.maskname}, pathname={event.pathname}"
 
 
@@ -81,16 +88,16 @@ class TaskScheduler(Task):
         if self._delay > 0:
             task_state.waiting = True
             self._log.debug(
-                f"schedule task ({event_to_str(event)}, "
+                f"schedule task ({_event_to_str(event)}, "
                 f"task_id={task_id}, delay={self._delay})")
             await asyncio.sleep(self._delay)
             task_state.waiting = False
 
         self._log.debug(
-                f"start task ({event_to_str(event)}, task_id={task_id})")
+                f"start task ({_event_to_str(event)}, task_id={task_id})")
         await self._delayed_task(event, task_id)
         self._log.debug(
-                f"task finished ({event_to_str(event)}, task_id={task_id})")
+                f"task finished ({_event_to_str(event)}, task_id={task_id})")
         del self._tasks[event.pathname]
 
     def start(self, event, *args, **kwargs):
@@ -111,7 +118,7 @@ class TaskScheduler(Task):
 
             if task_state.waiting:
                 self._log.debug(
-                    f"cancel task ({event_to_str(event)}, "
+                    f"cancel task ({_event_to_str(event)}, "
                     f"task_id={task_state.task_id})")
                 task_state.task.cancel()
                 del self._tasks[event.pathname]

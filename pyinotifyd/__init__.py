@@ -16,8 +16,10 @@
 
 __all__ = [
     "Pyinotifyd",
-    "daemon_from_config",
-]
+    "DaemonInstance",
+    "main",
+    "scheduler",
+    "watch"]
 
 import argparse
 import asyncio
@@ -26,7 +28,7 @@ import logging.handlers
 import signal
 import sys
 
-from pyinotifyd.watch import Watch, EventMap
+from pyinotifyd.watch import EventMap, Watch
 from pyinotifyd._install import install, uninstall
 
 __version__ = "0.0.2"
@@ -46,9 +48,10 @@ class Pyinotifyd:
     def from_cfg_file(config_file):
         config = {}
         name = Pyinotifyd.name
+        exec(f"import logging", {}, config)
         exec(f"from {name} import Pyinotifyd", {}, config)
         exec(f"from {name}.scheduler import *", {}, config)
-        exec(f"from {name}.watch import EventMap, Watch", {}, config)
+        exec(f"from {name}.watch import *", {}, config)
         with open(config_file, "r") as fh:
             exec(fh.read(), {}, config)
         instance = config[f"{name}"]
