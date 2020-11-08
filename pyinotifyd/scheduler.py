@@ -37,7 +37,7 @@ def _event_to_str(event):
 
 
 class Task:
-    def __init__(self, task=None, logname="task"):
+    def __init__(self, task, logname="task"):
         assert task is None or iscoroutinefunction(task), \
             f"task: expected asynchronous method or None, " \
             f"got {type(task)}"
@@ -76,7 +76,7 @@ class _TaskState:
 
 
 class TaskScheduler(Task):
-    def __init__(self, task=None, files=True, dirs=False, delay=0,
+    def __init__(self, task, files=True, dirs=False, delay=0,
                  *args, **kwargs):
         super().__init__(*args, **kwargs, task=self._schedule_task)
 
