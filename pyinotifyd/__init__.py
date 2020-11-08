@@ -32,7 +32,7 @@ import sys
 from pyinotify import ProcessEvent
 
 from pyinotifyd._install import install, uninstall
-from pyinotifyd.scheduler import Task
+from pyinotifyd.scheduler import TaskScheduler
 
 __version__ = "0.0.2"
 
@@ -52,7 +52,7 @@ class _TaskList:
 
     def execute(self, event):
         for task in self._tasks:
-            task.start(event)
+            asyncio.create_task(task.start(event))
 
 
 class EventMap(ProcessEvent):
@@ -82,8 +82,8 @@ class EventMap(ProcessEvent):
 
             task_instances = []
             for task in tasks:
-                if not issubclass(type(task), Task):
-                    task = Task(task)
+                if not issubclass(type(task), TaskScheduler):
+                    task = TaskScheduler(task)
 
                 task_instances.append(task)
             self._map[flag] = _TaskList(task_instances).execute
