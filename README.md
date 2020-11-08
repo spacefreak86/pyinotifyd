@@ -1,5 +1,5 @@
 # pyinotifyd
-A daemon to monitore filesystems events with inotify on Linux and execute tasks (Python methods or Shell commands) with an optional delay. It is also possible to cancel delayed tasks.
+A daemon to monitor filesystems events with inotify on Linux and execute tasks (Python methods or Shell commands) with an optional delay. It is also possible to cancel delayed tasks.
 
 ## Requirements
 * [pyinotify](https://github.com/seb-m/pyinotify)
