@@ -43,7 +43,6 @@ class TaskScheduler:
         task: asyncio.Task = None
         cancelable: bool = True
 
-
     def __init__(self, job, files=True, dirs=False, delay=0, logname="sched"):
         assert iscoroutinefunction(job), \
             f"job: expected coroutine, got {type(job)}"
@@ -61,51 +60,49 @@ class TaskScheduler:
         self._log = logging.getLogger((logname or __name__))
 
         self._tasks = {}
+        self._pause = False
 
-    def cancel(self, event):
-        try:
-            task_state = self._tasks[event.pathname]
-        except KeyError:
-            return
+    async def pause(self):
+        self._log.info("pause scheduler")
+        self._pause = True
 
-        if task_state.cancelable:
-            task_state.task.cancel()
-            self._log.info(
-                f"scheduled task cancelled ({_event_to_str(event)}, "
-                f"task_id={task_state.id})")
-            task_state.task = None
-            del self._tasks[event.pathname]
-        else:
-            self.log.warning(
-                f"skip ({_event_to_str(event)}) due to an ongoing task "
-                f"(task_id={task_state.id})")
-
-    async def start(self, event):
-        if not ((not event.dir and self._files) or
-                (event.dir and self._dirs)):
-            return
-
-        prefix = ""
-        try:
-            task_state = self._tasks[event.pathname]
-            if task_state.cancelable:
-                task_state.task.cancel()
-                prefix = "re"
+    async def shutdown(self, timeout=None):
+        self._pause = True
+        pending = [t.task for t in self._tasks.values()]
+        if pending:
+            if timeout is None:
+                self._log.info(
+                    f"wait for {len(pending)} "
+                    f"remaining task(s) to complete")
             else:
-                self.log.warning(
-                    f"skip ({_event_to_str(event)}) due to an ongoing task "
-                    f"(task_id={task_state.id})")
-                return
+                self._log.info(
+                    f"wait {timeout} seconds for {len(pending)} "
+                    f"remaining task(s) to complete")
+            done, pending = await asyncio.wait([*pending], timeout=timeout)
+            if pending:
+                self._log.warning(
+                    f"shutdown timeout exceeded, "
+                    f"cancel {len(pending)} remaining task(s)")
+                for task in pending:
+                    task.cancel()
+                try:
+                    await asyncio.gather(*pending)
+                except asyncio.CancelledError:
+                    pass
+            else:
+                self._log.info("all remainig tasks completed")
 
-        except KeyError:
-            task_state = TaskScheduler.TaskState()
-            self._tasks[event.pathname] = task_state
-
+    async def _run_job(self, event, task_state, restart=False):
         if self._delay > 0:
             task_state.task = asyncio.create_task(
                 asyncio.sleep(self._delay))
 
             try:
+                if restart:
+                    prefix = "re-"
+                else:
+                    prefix = ""
+
                 self._log.info(
                     f"{prefix}schedule task ({_event_to_str(event)}, "
                     f"task_id={task_state.id}, delay={self._delay})")
@@ -133,15 +130,67 @@ class TaskScheduler:
         finally:
             del self._tasks[event.pathname]
 
+    async def process_event(self, event):
+        if not ((not event.dir and self._files) or
+                (event.dir and self._dirs)):
+            return
 
-class Cancel(TaskScheduler):
-    def __init__(self, task):
+        restart = False
+        try:
+            task_state = self._tasks[event.pathname]
+            if task_state.cancelable:
+                task_state.task.cancel()
+                if not self._pause:
+                    restart = True
+                else:
+                    self._log.info(
+                        f"scheduled task cancelled ({_event_to_str(event)}, "
+                        f"task_id={task_state.id})")
+
+            else:
+                self.log.warning(
+                    f"skip ({_event_to_str(event)}) due to an ongoing task "
+                    f"(task_id={task_state.id})")
+                return
+
+        except KeyError:
+            task_state = TaskScheduler.TaskState()
+            self._tasks[event.pathname] = task_state
+
+        if not self._pause:
+            await self._run_job(event, task_state, restart)
+
+    async def process_cancel_event(self, event):
+        try:
+            task_state = self._tasks[event.pathname]
+        except KeyError:
+            return
+
+        if task_state.cancelable:
+            task_state.task.cancel()
+            self._log.info(
+                f"scheduled task cancelled ({_event_to_str(event)}, "
+                f"task_id={task_state.id})")
+            task_state.task = None
+            del self._tasks[event.pathname]
+        else:
+            self.log.warning(
+                f"skip ({_event_to_str(event)}) due to an ongoing task "
+                f"(task_id={task_state.id})")
+
+
+class Cancel:
+    def __init__(self, task, *args, **kwargs):
         assert issubclass(type(task), TaskScheduler), \
             f"task: expected {type(TaskScheduler)}, got {type(task)}"
-        self._task = task
 
-    async def start(self, event):
-        self._task.cancel(event)
+        setattr(self, "process_event", task.process_cancel_event)
+
+    async def shutdown(self, timeout=None):
+        pass
+
+    async def pause(self):
+        pass
 
 
 class ShellScheduler(TaskScheduler):
@@ -231,9 +280,9 @@ class FileManagerScheduler(TaskScheduler):
 
         return rule
 
-    async def start(self, event):
+    async def process_event(self, event):
         if self._get_rule_by_event(event):
-            await super().start(event)
+            await super().process_event(event)
         else:
             self._log.debug(
                 f"no rule in ruleset matches path '{event.pathname}'")
