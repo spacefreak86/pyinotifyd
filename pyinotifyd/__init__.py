@@ -38,15 +38,16 @@ __version__ = "0.0.2"
 
 
 class _SchedulerList:
-    def __init__(self, schedulers=[]):
+    def __init__(self, schedulers=[], loop=None):
         if not isinstance(schedulers, list):
             schedulers = [schedulers]
 
         self._schedulers = schedulers
+        self._loop = (loop or asyncio.get_event_loop())
 
     def process_event(self, event):
         for scheduler in self._schedulers:
-            asyncio.create_task(scheduler.process_event(event))
+            self._loop.create_task(scheduler.process_event(event))
 
     def schedulers(self):
         return self._schedulers
@@ -57,8 +58,9 @@ class EventMap(ProcessEvent):
         **pyinotify.EventsCodes.OP_FLAGS,
         **pyinotify.EventsCodes.EVENT_FLAGS}
 
-    def my_init(self, event_map=None, default_sched=None):
+    def my_init(self, event_map=None, default_sched=None, loop=None):
         self._map = {}
+        self._loop = (loop or asyncio.get_event_loop())
 
         if default_sched is not None:
             for flag in EventMap.flags:
@@ -83,9 +85,10 @@ class EventMap(ProcessEvent):
                         isinstance(scheduler, Cancel):
                     instances.append(scheduler)
                 else:
-                    instances.append(TaskScheduler(scheduler))
+                    instances.append(
+                        TaskScheduler(scheduler, loop=self._loop))
 
-            self._map[flag] = _SchedulerList(instances)
+            self._map[flag] = _SchedulerList(instances, loop=self._loop)
 
         elif flag in self._map:
             del self._map[flag]
@@ -107,7 +110,7 @@ class EventMap(ProcessEvent):
 
 class Watch:
     def __init__(self, path, event_map=None, default_sched=None, rec=False,
-                 auto_add=False, logname="watch"):
+                 auto_add=False, logname="watch", loop=None):
         assert isinstance(path, str), \
             f"path: expected {type('')}, got {type(path)}"
 
@@ -122,6 +125,7 @@ class Watch:
         assert isinstance(auto_add, bool), \
             f"auto_add: expected {type(bool)}, got {type(auto_add)}"
         logname = (logname or __name__)
+        self._loop = loop
 
         self._path = path
         self._rec = rec
@@ -137,7 +141,8 @@ class Watch:
     def event_map(self):
         return self._event_map
 
-    def start(self, loop=asyncio.get_event_loop()):
+    def start(self, loop=None):
+        loop = (loop or self._loop)
         self._watch_manager.add_watch(self._path, pyinotify.ALL_EVENTS,
                                       rec=self._rec, auto_add=self._auto_add,
                                       do_glob=True)
@@ -154,12 +159,14 @@ class Watch:
 class Pyinotifyd:
     name = "pyinotifyd"
 
-    def __init__(self, watches=[], shutdown_timeout=30, logname="daemon"):
+    def __init__(self, watches=[], shutdown_timeout=30, logname="daemon",
+                 loop=None):
         self.set_watches(watches)
         self.set_shutdown_timeout(shutdown_timeout)
         logname = (logname or __name__)
+        self._loop = (loop or asyncio.get_event_loop())
+
         self._log = logging.getLogger(logname)
-        self._loop = asyncio.get_event_loop()
 
     @staticmethod
     def from_cfg_file(config_file):
@@ -203,8 +210,7 @@ class Pyinotifyd:
         return list(set(schedulers))
 
     def start(self, loop=None):
-        if not loop:
-            loop = self._loop
+        loop = (loop or self._loop)
 
         if len(self._watches) == 0:
             self._log.warning(
@@ -396,12 +402,12 @@ def main():
     for signame in ["SIGINT", "SIGTERM"]:
         loop.add_signal_handler(
             getattr(signal, signame),
-            lambda: asyncio.ensure_future(
+            lambda: loop.create_task(
                 daemon.shutdown(signame)))
 
     loop.add_signal_handler(
         getattr(signal, "SIGHUP"),
-        lambda: asyncio.ensure_future(
+        lambda: loop.create_task(
             daemon.reload("SIGHUP", args.config, args.debug)))
 
     daemon.start()

@@ -43,7 +43,8 @@ class TaskScheduler:
         task: asyncio.Task = None
         cancelable: bool = True
 
-    def __init__(self, job, files=True, dirs=False, delay=0, logname="sched"):
+    def __init__(self, job, files=True, dirs=False, delay=0, logname="sched",
+                 loop=None):
         assert iscoroutinefunction(job), \
             f"job: expected coroutine, got {type(job)}"
         assert isinstance(files, bool), \
@@ -58,6 +59,7 @@ class TaskScheduler:
         self._dirs = dirs
         self._delay = delay
         self._log = logging.getLogger((logname or __name__))
+        self._loop = (loop or asyncio.get_event_loop())
 
         self._tasks = {}
         self._pause = False
@@ -78,7 +80,8 @@ class TaskScheduler:
                 self._log.info(
                     f"wait {timeout} seconds for {len(pending)} "
                     f"remaining task(s) to complete")
-            done, pending = await asyncio.wait([*pending], timeout=timeout)
+            done, pending = await asyncio.wait([*pending], timeout=timeout,
+                                               loop=self._loop)
             if pending:
                 self._log.warning(
                     f"shutdown timeout exceeded, "
@@ -86,7 +89,7 @@ class TaskScheduler:
                 for task in pending:
                     task.cancel()
                 try:
-                    await asyncio.gather(*pending)
+                    await asyncio.gather(*pending, loop=self._loop)
                 except asyncio.CancelledError:
                     pass
             else:
@@ -94,8 +97,8 @@ class TaskScheduler:
 
     async def _run_job(self, event, task_state, restart=False):
         if self._delay > 0:
-            task_state.task = asyncio.create_task(
-                asyncio.sleep(self._delay))
+            task_state.task = self._loop.create_task(
+                asyncio.sleep(self._delay, loop=self._loop))
 
             try:
                 if restart:
@@ -110,7 +113,7 @@ class TaskScheduler:
             except asyncio.CancelledError:
                 return
 
-        task_state.task = asyncio.create_task(
+        task_state.task = self._loop.create_task(
             self._job(event, task_state.id))
 
         self._log.info(
@@ -215,7 +218,7 @@ class ShellScheduler(TaskScheduler):
 
         self._log.info(f"{task_id}: execute shell command: {cmd}")
         try:
-            proc = await asyncio.create_subprocess_shell(cmd)
+            proc = await asyncio.create_subprocess_shell(cmd, loop=self._loop)
             await proc.communicate()
         except Exception as e:
             self._log.error(f"{task_id}: {e}")
