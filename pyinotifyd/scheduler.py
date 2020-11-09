@@ -196,10 +196,10 @@ class Cancel:
 
         setattr(self, "process_event", task.process_cancel_event)
 
-    async def shutdown(self, timeout=None):
+    def pause(self):
         pass
 
-    async def pause(self):
+    async def shutdown(self, timeout=None):
         pass
 
 
