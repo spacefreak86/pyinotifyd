@@ -197,8 +197,7 @@ syslog = logging.handlers.SysLogHandler(
 
 # set the log format of syslog messages
 log_format = "pyinotifyd/%(name)s: %(message)s"
-syslog.setFormatter(
-    logging.Formatter(formatter)
+syslog.setFormatter(logging.Formatter(log_format))
 
 # set the log level for syslog messages
 syslog.setLevel(logging.INFO)
