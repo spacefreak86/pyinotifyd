@@ -172,8 +172,7 @@ w = Watch(
     rec=False,
     auto_add=False)
 
-pyinotifyd.add_watch(
-    watch=w)
+pyinotifyd.add_watch(watch=w)
 ```
 
 ## Logging
@@ -197,14 +196,10 @@ setLoglevel(INFO, logname="daemon")
 Send log messages to the local syslog server.
 ```python
 # Enable logging to local syslog server (/dev/log). Use *address* to specify a different target.
-enableSyslog(
-	loglevel=INFO,
-	address="/dev/log")
+enableSyslog(loglevel=INFO, address="/dev/log")
 
 # Enable syslog per logname
-enableSyslog(
-	loglevel=INFO,
-	name="daemon")
+enableSyslog(lglevel=INFO, name="daemon")
 ```
 
 # Examples
