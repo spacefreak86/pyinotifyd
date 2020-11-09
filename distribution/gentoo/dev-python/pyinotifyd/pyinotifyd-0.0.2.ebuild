@@ -38,7 +38,7 @@ python_install_all() {
 
 	dodir /etc/${PN}
 	insinto /etc/${PN}
-	newins ${PN}/misc/config.py.example config.py
+	newins ${PN}/misc/config.py.default config.py
 
 	use systemd && systemd_dounit ${PN}/misc/${PN}.service
 
