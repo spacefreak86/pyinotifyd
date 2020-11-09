@@ -186,16 +186,16 @@ The following loglevels are available:
 ```python
 # Configure global loglevel
 setLoglevel(INFO)
-```
-Configure loglevel per *logname*.
-```python
+
+# Configure loglevel per logname.
 setLoglevel(INFO, logname="daemon")
 ```
 
 ### Syslog
 Send log messages to the local syslog server.
 ```python
-# Enable logging to local syslog server (/dev/log). Use *address* to specify a different target.
+# Enable logging to local syslog server (/dev/log).
+# Use *address* to specify a different target.
 enableSyslog(loglevel=INFO, address="/dev/log")
 
 # Enable syslog per logname
