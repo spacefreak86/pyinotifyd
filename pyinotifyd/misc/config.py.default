@@ -82,3 +82,27 @@
 #    event_map = event_map,
 #    rec=True,
 #    auto_add=True)
+
+
+################
+#  Log config  #
+################
+
+# set global loglevel
+#setLoglevel(DEBUG)
+
+# set loglevel per logname
+#setLoglevel(
+#    DEBUG,
+#    logname="daemon")
+
+# enable syslog
+#enableSyslog(
+#    loglevel=DEBUG,
+#    address="/dev/log")
+
+# enable syslog per logname
+#enableSyslog(
+#    loglevel=DEBUG,
+#    address="/dev/log",
+#    logname="sched")

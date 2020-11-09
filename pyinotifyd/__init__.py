@@ -37,6 +37,22 @@ from pyinotifyd.scheduler import TaskScheduler, Cancel
 __version__ = "0.0.3"
 
 
+def setLoglevel(loglevel, logname=None):
+    logger = logging.getLogger(logname)
+    logger.setLevel(loglevel)
+
+
+def enableSyslog(loglevel=None, address="/dev/log", logname=None):
+    logger = logging.getLogger(logname)
+    syslog = logging.handlers.SysLogHandler(address=address)
+    syslog.setFormatter(
+        logging.Formatter(f"{Pyinotifyd.name}/%(name)s: %(message)s"))
+    if loglevel:
+        syslog.setLevel(loglevel)
+
+        logger.addHandler(syslog)
+
+
 class _SchedulerList:
     def __init__(self, schedulers=[], loop=None):
         if not isinstance(schedulers, list):
@@ -184,8 +200,10 @@ class Pyinotifyd:
     def from_cfg_file(config_file):
         config = {}
         name = Pyinotifyd.name
-        exec("import logging", {}, config)
+        exec("from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL",
+             {}, config)
         exec(f"from {name} import Pyinotifyd, Watch", {}, config)
+        exec(f"from {name} import setLoglevel, enableSyslog", {}, config)
         exec(f"from {name}.scheduler import *", {}, config)
         with open(config_file, "r") as fh:
             exec(fh.read(), {}, config)

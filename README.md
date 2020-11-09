@@ -178,35 +178,33 @@ pyinotifyd.add_watch(
 
 ## Logging
 Pythons [logging](https://docs.python.org/3/howto/logging.html) framework is used to log messages (see https://docs.python.org/3/howto/logging.html).  
-
-Configure the global loglevel. This is the default:
+The following loglevels are available:
+* DEBUG
+* INFO
+* WARNING
+* ERROR
+* CRITICAL
 ```python
-logging.getLogger().setLevel(logging.WARNING)
+# Configure global loglevel
+setLoglevel(INFO)
 ```
-It is possible to configure the loglevel per *logname*. This is an example for logname **sched**:
+Configure loglevel per *logname*.
 ```python
-logging.getLogger("sched").setLevel(logging.INFO)
+setLoglevel(INFO, logname="daemon")
 ```
 
 ### Syslog
-Add this to your config file to send log messages to a local syslog server.
+Send log messages to the local syslog server.
 ```python
-# send log messages to the Unix socket of the syslog server.
-syslog = logging.handlers.SysLogHandler(
-    address="/dev/log")
+# Enable logging to local syslog server (/dev/log). Use *address* to specify a different target.
+enableSyslog(
+	loglevel=INFO,
+	address="/dev/log")
 
-# set the log format of syslog messages
-log_format = "pyinotifyd/%(name)s: %(message)s"
-syslog.setFormatter(logging.Formatter(log_format))
-
-# set the log level for syslog messages
-syslog.setLevel(logging.INFO)
-
-# enable syslog for pyinotifyd
-logging.getLogger().addHandler(syslog)
-
-# or enable syslog per logname
-#logging.getLogger("logname").addHandler(syslog)
+# Enable syslog per logname
+enableSyslog(
+	loglevel=INFO,
+	name="daemon")
 ```
 
 # Examples
