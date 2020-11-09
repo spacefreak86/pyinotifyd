@@ -99,7 +99,7 @@ def install(name):
     logging.info("install configuration file")
     config_dir = f"/etc/{name}"
     if os.path.isdir(config_dir):
-        logging.info(f" => directory {config_dir} exists already")
+        logging.info(f" => directory {config_dir} already exists")
     else:
         try:
             logging.info(f" => create directory {config_dir}")

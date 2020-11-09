@@ -378,7 +378,7 @@ class FileManagerScheduler(TaskScheduler):
                 if os.path.exists(dst) and not rule.overwrite:
                     raise RuntimeError(
                         f"unable to {rule.action} file from '{path} "
-                        f"to '{dst}', destination path exists already")
+                        f"to '{dst}', path already exists")
 
                 dst_dir = os.path.dirname(dst)
                 if not os.path.isdir(dst_dir) and rule.auto_create:
