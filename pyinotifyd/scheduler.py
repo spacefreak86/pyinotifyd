@@ -228,8 +228,8 @@ class FileManagerRule:
     valid_actions = ["copy", "move", "delete"]
 
     def __init__(self, action, src_re, dst_re="", auto_create=False,
-                 dirmode=None, filemode=None, user=None, group=None,
-                 rec=False):
+                 overwrite=False, dirmode=None, filemode=None, user=None,
+                 group=None, rec=False):
         valid = f"{', '.join(FileManagerRule.valid_actions)}"
         assert action in self.valid_actions, \
             f"action: expected [{valid}], got{action}"
@@ -238,6 +238,8 @@ class FileManagerRule:
         assert isinstance(dst_re, str), \
             f"dst_re: expected {type('')}, got {type(dst_re)}"
         assert isinstance(auto_create, bool), \
+            f"auto_create: expected {type(bool)}, got {type(auto_create)}"
+        assert isinstance(overwrite, bool), \
             f"auto_create: expected {type(bool)}, got {type(auto_create)}"
         assert dirmode is None or isinstance(dirmode, int), \
             f"dirmode: expected {type(int)}, got {type(dirmode)}"
@@ -254,6 +256,7 @@ class FileManagerRule:
         self.src_re = re.compile(src_re)
         self.dst_re = dst_re
         self.auto_create = auto_create
+        self.overwrite = overwrite
         self.dirmode = dirmode
         self.filemode = filemode
         self.user = user
@@ -351,9 +354,9 @@ class FileManagerScheduler(TaskScheduler):
                         f"unable to {rule.action} '{path}', "
                         f"resulting destination path is empty")
 
-                if os.path.exists(dst):
+                if os.path.exists(dst) and not self.overwrite:
                     raise RuntimeError(
-                        f"unable to move file from '{path} "
+                        f"unable to {rule.action} file from '{path} "
                         f"to '{dst}', destination path exists already")
 
                 dst_dir = os.path.dirname(dst)
