@@ -32,12 +32,13 @@ from uuid import uuid4
 
 
 class SchedulerLogger(logging.LoggerAdapter):
-    def process(self, msg, **kwargs):
-        if "event" in kwargs:
-            event = kwargs["event"]
+    def process(self, msg, kwargs):
+        if "event" in self.extra:
+            event = self.extra["event"]
             msg = f"{msg}, mask={event.maskname}, path={event.pathname}"
-        if "id" in kwargs:
-            task_id = kwargs["id"]
+
+        if "id" in self.extra:
+            task_id = self.extra["id"]
             msg = f"{msg}, task_id={task_id}"
 
         return msg, kwargs
@@ -104,28 +105,24 @@ class TaskScheduler:
                 self._log.info("all remainig tasks completed")
 
     async def _run_job(self, event, task_state, restart=False):
+        logger = SchedulerLogger(self._log, {
+            "event": event,
+            "id": task_state.id})
+
         if self._delay > 0:
             task_state.task = self._loop.create_task(
                 asyncio.sleep(self._delay, loop=self._loop))
-            logger = SchedulerLogger(self._log, {
-                "event": event,
-                "id": task_state.id,
-                "delay": self._delay})
             try:
                 if restart:
                     prefix = "re-"
                 else:
                     prefix = ""
 
-                logger.info(f"{prefix}schedule task")
+                logger.info(f"{prefix}schedule task, delay={self._delay}")
 
                 await task_state.task
             except asyncio.CancelledError:
                 return
-
-        logger = SchedulerLogger(self._log, {
-            "event": event,
-            "id": task_state.id})
 
         logger.info("start task")
 
@@ -378,7 +375,7 @@ class FileManagerScheduler(TaskScheduler):
                         f"unable to {rule.action} '{path}', "
                         f"resulting destination path is empty")
 
-                if os.path.exists(dst) and not self.overwrite:
+                if os.path.exists(dst) and not rule.overwrite:
                     raise RuntimeError(
                         f"unable to {rule.action} file from '{path} "
                         f"to '{dst}', destination path exists already")
