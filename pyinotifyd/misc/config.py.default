@@ -2,11 +2,11 @@
 #  TaskScheduler config  #
 ##########################
 
-#async def custom_task(event, task_id):
+#async def custom_job(event, task_id):
 #    logging.info(f"{task_id}: execute example task: {event}")
 #
 #task_sched = TaskScheduler(
-#    task=custom_task,
+#    job=custom_job,
 #    files=True,
 #    dirs=False,
 #    delay=10)
@@ -29,8 +29,8 @@
 
 #move_rule = Rule(
 #    action="move",
-#    src_re="^(?P<path>.*).to_move",
-#    dst_re="\g<path>.moved",
+#    src_re="^/src_path/(?P<path>.*).to_move",
+#    dst_re="/dst_path/\g<path>.moved",
 #    auto_create=True,
 #    filemode=0o755,
 #    dirmode=0o644,
@@ -40,7 +40,7 @@
 
 #delete_rule = Rule(
 #    action="delete",
-#    src_re="^(?P<path>.*).to_delete",
+#    src_re="^/src_path/(?P<path>.*).to_delete",
 #    rec=False)
 
 #file_sched = FileManagerScheduler(

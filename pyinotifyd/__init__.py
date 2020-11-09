@@ -205,8 +205,13 @@ class Pyinotifyd:
         self._watches = []
         self._watches.extend(watches)
 
-    def add_watch(self, *args, **kwargs):
-        self._watches.append(Watch(*args, **kwargs))
+    def add_watch(self, *args, watch=None, **kwargs):
+        if watch:
+            assert isinstance(watch, Watch), \
+                f"watch: expected {type(Watch)}, got {type(watch)}"
+            self._watches.append(watch)
+        else:
+            self._watches.append(Watch(*args, **kwargs))
 
     def set_shutdown_timeout(self, timeout):
         assert isinstance(timeout, int), \
@@ -344,12 +349,12 @@ def main():
     exclusive.add_argument(
         "-i",
         "--install",
-        help="install systemd service file",
+        help="install service files and config",
         action="store_true")
     exclusive.add_argument(
         "-u",
         "--uninstall",
-        help="uninstall systemd service file",
+        help="uninstall service files and unmodified config",
         action="store_true")
     exclusive.add_argument(
         "-t",

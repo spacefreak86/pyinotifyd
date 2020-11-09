@@ -1,25 +1,26 @@
 # pyinotifyd
-A daemon to monitor filesystems events with inotify on Linux and execute tasks (Python methods or Shell commands) with an optional delay. It is also possible to cancel delayed tasks.
+A daemon to monitor filesystems events with inotify on Linux and run tasks like filesystem operations (copy, move or delete), a shell commands or custom async python methods.  
+It is possible to schedule tasks with a delay, delayed tasks can be cancelled again in case a certain event occurs. A useful example would be to run tasks only if a file has not changed within a certain amount of time.
 
-## Requirements
+# Requirements
 * [pyinotify](https://github.com/seb-m/pyinotify)
 
-## Installation
+# Installation
 ```sh
 # install pyinotifyd with pip
 pip install pyinotifyd
 
-# install systemd service and create config directory
+# install service files and config
 pyinotifyd --install
 
-# uninstall systemd service
+# uninstall service files and unmodified config
 pyinotifyd --uninstall
 ```
 
-### Autostart
+## Autostart
 The following init systems are supported.
 
-#### systemd
+### systemd
 ```sh
 # start the daemon at boot time
 systemctl enable pyinotifyd.service
@@ -28,7 +29,7 @@ systemctl enable pyinotifyd.service
 systemctl start pyinotifyd.service
 ```
 
-#### OpenRC (Gentoo)
+### OpenRC (Gentoo)
 ```sh
 # start the daemon at boot time
 rc-update add pyinotifyd default
@@ -37,58 +38,53 @@ rc-update add pyinotifyd default
 rc-service pyinotifyd start 
 ```
 
-## Configuration
-The config file **/etc/pyinotifyd/config.py** is written in Python syntax. pyinotifyd reads and executes its content, that means you can add your custom Python code to the config file.
+# Configuration
+The config file **/etc/pyinotifyd/config.py** is written in python syntax. pyinotifyd reads and executes its content, that means you can write your custom async python methods directly into the config file.  
+The basic idea is to instantiate one or multiple schedulers and map specific inotify events to schedulers with the help of event maps. Then, watch the given paths for events and run tasks as defined in the event maps.
 
-### Tasks
-Tasks are Python methods that are called in case an event occurs. They can be bound directly to an event type in an event map. Although this is the easiest and quickest way, it is usually better to add a task to a scheduler and bind the scheduler to event types.
-
-#### Simple
-This is a very basic example task that just logs each event and task_id:
-```python
-async def task(event, task_id):
-    logging.info(f"{task_id}: execute example task: {event}")
-```
-
-### Schedulers
+## Schedulers
 pyinotifyd has different schedulers to schedule tasks with an optional delay. The advantages of using a scheduler are consistent logging and the possibility to cancel delayed tasks. Furthermore, schedulers have the ability to differentiate between files and directories.
 
-#### TaskScheduler
-TaskScheduler schedules *task* with an optional *delay* in seconds. Use the *files* and *dirs* arguments to schedule tasks only for files and/or directories. 
-Log messages with *logname*. All arguments except for *task* are optional.
+### TaskScheduler
+Schedule a custom python method *job* with an optional *delay* in seconds. Skip scheduling of tasks for files and/or directories according to *files* and *dirs* arguments. If there already is a scheduled task, re-schedule it with *delay*. Use *logname* in log messages.  
+All arguments except for *job* are optional.
 ```python
-s = TaskScheduler(
-    task=task,
+# Please note that pyinotifyd uses pythons asyncio for asynchronous task execution.
+# Do not run anything inside the custom python method that blocks the daemon.
+#
+# Bad:  time.sleep(10)
+# Good: await asyncio.sleep(10)
+
+async def custom_job(event, task_id):
+    await asyncio.sleep(10)
+    logging.info(f"{task_id}: execute example task: {event}")
+
+task_sched = TaskScheduler(
+    job=custom_job,
     files=True,
     dirs=False,
     delay=0,
     logname="sched")
 ```
-TaskScheduler provides two tasks which can be bound to an event in an event map.
-* **s.schedule** 
-  Schedule a task. If there is already a scheduled task, it will be canceled first.
-* **s.cancel** 
-  Cancel a scheduled task.
-* **s.log** 
-  Just log the event.
 
-#### ShellScheduler
-ShellScheduler schedules Shell command *cmd*. The placeholders **{maskname}**, **{pathname}** and **{src_pathname}** are replaced with the actual values of the event. ShellScheduler has the same optional arguments as TaskScheduler and provides the same tasks.
+### ShellScheduler
+Schedule a shell command *cmd*. Replace  **{maskname}**, **{pathname}** and **{src_pathname}** in *cmd* with the actual values of occuring events. This scheduler is based on TaskScheduler and has the same optional arguments.
 ```python
-s1 = ShellScheduler(
+# Please note that **{src_pathname}** is only present for IN_MOVED_TO events and only in the case where the IN_MOVED_FROM events are watched too.
+# If it is not present, the command line argument will be an empty string.
+shell_sched = ShellScheduler(
     cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
 ```
 
-#### FileManagerScheduler
-FileManagerScheduler moves, copy or deletes files and/or directories following a list of *rules*. It has the same optional arguments as TaskScheduler and provides the same tasks.
+### FileManagerScheduler
+Move, copy or delete files and/or directories following the list of *rules*, the first matching rule is executed.  
+This scheduler is based on TaskScheduler and has the same optional arguments.  
 
-A FileManagerRule holds an *action* (move, copy or delete) and a regular expression *src_re*. The FileManagerScheduler task will be executed if *src_re* matches the path of an event. 
-If the action is copy or move, the destination path *dst_re* is mandatory and if *action* is delete and *rec* is set to True, non-empty directories will be deleted recursively.  
-With *auto_create* set to True, possibly missing subdirectories in *dst_re* are created automatically. Regex subgroups or named-subgroups may be used in *src_re* and *dst_re*.  
-Set the mode of moved/copied files/directories with *filemode* and *dirmode*. Ownership of moved/copied files/directories is set with *user* and *group*. Mode and ownership is also set to automatically created subdirectories.  
-Log messages with *logname*.  
+A rule holds an *action* (move, copy or delete) and a regular expression *src_re*. The *action* will be executed if *src_re* matches the path of an event. In case where *action* is copy or move, use *dst_re* as destination path. Subgroups and/or named-subgroups may be used in *src_re* and *dst_re*.  
+Automatically create possibly missing sub-directories if *auto_create* is set to True. Set the mode and ownership of moved or copied files/directories and newly created sub-directories to *filemode* and *dirmode*. Override destination files if *override* is set to True.  
+If *action* is delete, delete non-empty directories if *rec* is set to True.  
 ```python
-rule = FileManagerRule(
+move_rule = FileManagerRule(
     action="move",
     src_re="^/src_path/(?P<path>.*).to_move$",
     dst_re="/dst_path/\g<path>",
@@ -97,22 +93,43 @@ rule = FileManagerRule(
     filemode=None,
     dirmode=None,
     user=None,
-    group=None)
+    group=None,
+    override=False)
 
-s = FileManagerScheduler(
-    rules=[rule],
-    logname="filemgr")
+delete_rule = FileManagerRule(
+    action="delete",
+    src_re="^/src_path/(?P<path>.*).to_delete$",
+    rec=False)
+
+file_sched = FileManagerScheduler(
+    rules=[move_rule, delete_rule])
 ```
 
-### Event maps
-EventMap maps event types to tasks. It is possible to set a list of tasks to run multiple tasks on a single event. If the task of an event type is set to None, it is ignored. 
-This is an example:
+## Event maps
+Map specific events to one or multiple schedulers. Ignore the event if the scheduler is set to None. Use **Cancel** to cancel a scheduled task within a scheduler.  
+This is an example which schedules tasks for newly created files if they are not modified, moved or deleted within the delay time of the scheduler.
 ```python
-event_map = EventMap({
-        "IN_CLOSE_NOWRITE": [s.schedule, s1.schedule],
-        "IN_CLOSE_WRITE": s.schedule})
+event_map = {
+    "IN_ACCESS": None,
+    "IN_ATTRIB": None,
+    "IN_CLOSE_NOWRITE": None,
+    "IN_CLOSE_WRITE": task_sched,
+    "IN_CREATE": task_sched,
+    "IN_DELETE": Cancel(task_sched),
+    "IN_DELETE_SELF": Cancel(task_sched),
+    "IN_IGNORED": None,
+    "IN_MODIFY": Cancel(task_sched),
+    "IN_MOVE_SELF": None,
+    "IN_MOVED_FROM": Cancel(task_sched),
+    "IN_MOVED_TO": task_sched,
+    "IN_OPEN": None,
+    "IN_Q_OVERFLOW": None,
+    "IN_UNMOUNT": Cancel(task_sched)}
+
+# It is possible to instantiate an event map with a default scheduler set for every event,
+event_map = EventMap(default_sched=task_sched)
 ```
-The following event types are available:
+The following events are available:
 * **IN_ACCESS**: a file was accessed
 * **IN_ATTRIB**: a metadata changed
 * **IN_CLOSE_NOWRITE**: an unwritable file was closed
@@ -129,38 +146,49 @@ The following event types are available:
 * **IN_Q_OVERFLOW**: the event queue overflown. This event is not associated with any watch descriptor
 * **IN_UNMOUNT**: when backing filesystem was unmounted. Notified to each watch of this filesystem
 
-### Watches
-Watch watches *path* for event types in *event_map* and execute the corresponding task(s). If *rec* is True, a watch will be added on each subdirectory in *path*. If *auto_add* is True, a watch will be added automatically on newly created subdirectories in *path*.
-```python
-watch = Watch(
-    path="/tmp",
-    event_map=event_map,
-    rec=False,
-    auto_add=False)
-```
-
-### Pyinotifyd
-pyinotifyd expects an instance of Pyinotifyd named **pyinotifyd** defined in the config file. The options are a list of *watches* and the *shutdown_timeout*. pyinotifyd will wait *shutdown_timeout* seconds for pending tasks to complete during shutdown. Log messages with *logname*.
+## Pyinotifyd
+pyinotifyd requires you to define a variable called **pyinotifyd** within the config file, which contains an instance of the Pyinotifyd class. Set the optional list of *watches* and the *shutdown_timeout*. Pyinotifyd will wait *shutdown_timeout* seconds for pending tasks to complete before shutdown. Use *logname* in log messages.  
 ```python
 pyinotifyd = Pyinotifyd(
-    watches=[watch],
+    watches=[],
     shutdown_timeout=30,
     logname="daemon")
 ```
 
-### Logging
+### Watches
+A watch connects the *path* to an *event_map*. Automatically add a watch on each sub-directories in *path* if *rec* is set to True. If *auto_add* is True, a watch will be added automatically on newly created sub-directories in *path*.
+```python
+# Add a watch directly to Pyinotifyd.
+pyinotifyd.add_watch(
+    path="/src_path",
+    event_map=event_map,
+    rec=False,
+    auto_add=False)
+
+# Or instantiate and add it
+w = Watch(
+    path="/src_path",
+    event_map=event_map,
+    rec=False,
+    auto_add=False)
+
+pyinotifyd.add_watch(
+    watch=w)
+```
+
+## Logging
 Pythons [logging](https://docs.python.org/3/howto/logging.html) framework is used to log messages (see https://docs.python.org/3/howto/logging.html).  
 
 Configure the global loglevel. This is the default:
 ```python
 logging.getLogger().setLevel(logging.WARNING)
 ```
-It is possible to configure the loglevel per log name. This is an example for logname **TaskScheduler**:
+It is possible to configure the loglevel per *logname*. This is an example for logname **sched**:
 ```python
-logging.getLogger("TaskScheduler").setLevel(logging.INFO)
+logging.getLogger("sched").setLevel(logging.INFO)
 ```
 
-#### Syslog
+### Syslog
 Add this to your config file to send log messages to a local syslog server.
 ```python
 # send log messages to the Unix socket of the syslog server.
@@ -175,61 +203,55 @@ syslog.setFormatter(
 # set the log level for syslog messages
 syslog.setLevel(logging.INFO)
 
-# enable syslog
+# enable syslog for pyinotifyd
 logging.getLogger().addHandler(syslog)
 
-# or enable syslog just for TaskScheduler
-logging.getLogger("TaskManager").addHandler(syslog)
+# or enable syslog just for the daemon
+logging.getLogger("daemon").addHandler(syslog)
 ```
 
-## Examples
+# Examples
 
-### Schedule Python task for all events
+## Schedule python method for all events on files and directories
 ```python
-async def task(event, task_id):
+async def custom_job(event, task_id):
     logging.info(f"{task_id}: execute example task: {event}")
 
-s = TaskScheduler(
-    task=task,
+task_sched = TaskScheduler(
+    job=custom_job,
     files=True,
     dirs=True)
 
 event_map = EventMap(
-    default_task=s.schedule)
+    default_sched=task_sched)
 
-watch = Watch(
-    path="/tmp",
-    event_map=event_map,
-    rec=True,
-    auto_add=True)
-
-pyinotifyd_config = PyinotifydConfig(
-    watches=[watch],
-    shutdown_timeout=5)
+pyinotifyd = Pyinotifyd()
+pyinotifyd.add_watch(
+	path="/src_path",
+	event_map=event_map,
+	rec=True,
+	auto_add=True)
 ```
 
-### Schedule Shell commands for specific events on files
+## Schedule shell commands for specific events on files
 ```python
-s = ShellScheduler(
+shell_sched = ShellScheduler(
     cmd="/usr/local/sbin/task.sh {pathname}",
     files=True,
     dirs=False)
 
-event_map = EventMap(
-    {"IN_WRITE_CLOSE": s.schedule})
+event_map = {
+    "IN_WRITE_CLOSE": shell_sched}
 
-watch = Watch(
-    path="/tmp",
-    event_map=event_map,
-    rec=True,
-    auto_add=True)
-
-pyinotifyd_config = PyinotifydConfig(
-    watches=[watch],
-    shutdown_timeout=5)
+pyinotifyd = Pyinotifyd()
+pyinotifyd.add_watch(
+	path="/src_path",
+	event_map=event_map,
+	rec=True,
+	auto_add=True)
 ```
 
-### Move, copy or delete newly created files after a delay
+## Move, copy or delete newly created files after a delay
 ```python
 move_rule = FileManagerRule(
     action="move",
@@ -252,32 +274,28 @@ delete_rule = FileManagerRule(
     src_re="^/src_path/(?P<path>.*)\.to_delete$",
     rec=False)
 
-fm = FileManagerScheduler(
-    rules=[move_rule, copy_rule, delete_rule])
-
-s = TaskScheduler(
-    task=fm.task,
-    delay=30,
+file_sched = FileManagerScheduler(
+    rules=[move_rule, copy_rule, delete_rule],
+    delay=60,
     files=True,
     dirs=False)
 
-event_map = EventMap({
-        "IN_CLOSE_WRITE": s.schedule,
-        "IN_DELETE": s.cancel,
-        "IN_DELETE_SELF": s.cancel,
-        "IN_MODIFY": s.cancel,
-        "IN_MOVED_TO": s.schedule,
-        "IN_UNMOUNT": s.cancel})
+event_map = {
+    "IN_CLOSE_WRITE": file_sched,
+    "IN_CREATE": file_sched,
+    "IN_DELETE": Cancel(file_sched),
+    "IN_DELETE_SELF": Cancel(file_sched),
+    "IN_MODIFY": Cancel(file_sched),
+    "IN_MOVED_FROM": Cancel(file_sched),
+    "IN_MOVED_TO": file_sched,
+    "IN_UNMOUNT": Cancel(file_sched)}
 
-watch = Watch(
-    path="/src_path",
-    event_map=event_map,
-    rec=True,
-    auto_add=True)
-
-# note that shutdown_timeout should be greater than the greatest scheduler delay,
+# Please note that the shutdown timeout should be greater than the greatest scheduler delay,
 # otherwise pending tasks may get cancelled during shutdown.
-pyinotifyd_config = PyinotifydConfig(
-    watches=[watch],
-    shutdown_timeout=35)
+pyinotifyd = Pyinotifyd(shutdown_timeout=35)
+pyinotifyd.add_watch(
+	path="/src_path",
+	event_map=event_map,
+	rec=True,
+	auto_add=True)
 ```
