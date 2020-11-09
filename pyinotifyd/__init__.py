@@ -15,7 +15,9 @@
 #
 
 __all__ = [
-    "EventMap"
+    "setLoglevel",
+    "enableSyslog",
+    "EventMap",
     "Watch",
     "Pyinotifyd",
     "DaemonInstance",
@@ -34,7 +36,7 @@ from pyinotify import ProcessEvent
 from pyinotifyd._install import install, uninstall
 from pyinotifyd.scheduler import TaskScheduler, Cancel
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 
 def setLoglevel(loglevel, logname=None):
