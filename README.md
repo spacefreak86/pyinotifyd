@@ -129,7 +129,7 @@ event_map = {
     "IN_Q_OVERFLOW": None,
     "IN_UNMOUNT": Cancel(task_sched)}
 
-# It is possible to instantiate an event map with a default scheduler set for every event,
+# It is possible to instantiate an event map with a default scheduler set for every event
 event_map = EventMap(default_sched=task_sched)
 ```
 The following events are available:
