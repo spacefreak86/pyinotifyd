@@ -98,7 +98,8 @@ class EventMap(ProcessEvent):
 
     def process_default(self, event):
         msg = "received event"
-        for attr in ["dir", "mask", "maskname", "pathname", "src_pathname", "wd"]:
+        for attr in [
+                "dir", "mask", "maskname", "pathname", "src_pathname", "wd"]:
             value = getattr(event, attr, None)
             if attr == "mask":
                 value = hex(value)
