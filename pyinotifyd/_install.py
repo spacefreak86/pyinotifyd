@@ -14,13 +14,94 @@
 # along with pyinotifyd.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import filecmp
 import logging
 import os
 import shutil
 import sys
 
+
 SYSTEMD_PATH = "/lib/systemd/system"
 OPENRC = "/sbin/openrc"
+
+
+def _systemd_files(pkg_dir, name):
+    return [
+        (f"{pkg_dir}/misc/systemd/{name}.service",
+            f"{SYSTEMD_PATH}/{name}.service", True)]
+
+
+def _openrc_files(pkg_dir, name):
+    return [
+        (f"{pkg_dir}/misc/openrc/{name}.initd", f"/etc/init.d/{name}", True),
+        (f"{pkg_dir}/misc/openrc/{name}.confd", f"/etc/conf.d/{name}", False)]
+
+
+def _config_files(pkg_dir, name):
+    return [
+        (f"{pkg_dir}/misc/config.py.default", f"/etc/{name}/config.py", False)]
+
+
+def _install_files(files):
+    for src, dst, force in files:
+        if os.path.exists(dst):
+            if os.path.isdir(dst):
+                logging.error(
+                    " => unable to copy file, destination path is a directory")
+                continue
+            elif not force:
+                logging.info(f" => file {dst} already exists")
+                continue
+
+        try:
+            logging.info(f" => install file {dst}")
+            shutil.copy2(src, dst)
+        except Exception as e:
+            logging.error(f" => unable to install file {dst}: {e}")
+
+
+def _uninstall_files(files):
+    for src, dst, force in files:
+        if not os.path.isfile(dst):
+            continue
+
+        if not force and not filecmp.cmp(src, dst, shallow=True):
+            logging.warning(
+                f" => keep modified file {dst}, "
+                f"you have to remove it manually")
+            continue
+
+        try:
+            logging.info(f" => uninstall file {dst}")
+            os.remove(dst)
+        except Exception as e:
+            logging.error(f" => unable to uninstall file {dst}: {e}")
+
+
+def _create_dir(path):
+    if os.path.isdir(path):
+        logging.info(f" => directory {path} already exists")
+    else:
+        try:
+            logging.info(f" => create directory {path}")
+            os.mkdir(path)
+        except Exception as e:
+            logging.error(f" => unable to create directory {path}: {e}")
+            return False
+
+    return True
+
+
+def _delete_dir(path):
+    if os.path.isdir(path):
+        if not os.listdir(path):
+            try:
+                logging.info(f" => delete directory {path}")
+                os.rmdir(path)
+            except Exception as e:
+                logging.error(f" => unable to delete directory {path}: {e}")
+        else:
+            logging.warning(f" => keep non-empty directory {path}")
 
 
 def _check_root():
@@ -47,37 +128,6 @@ def _check_openrc():
     return openrc
 
 
-def _copy_missing_file(src, dst):
-    if os.path.exists(dst):
-        logging.info(f" => file {dst} already installed")
-    else:
-        try:
-            logging.info(f" => install file {dst}")
-            shutil.copy2(src, dst)
-        except Exception as e:
-            logging.error(f" => unable to install file {dst}: {e}")
-
-
-def _delete_present_file(f):
-    if os.path.isfile(f):
-        try:
-            logging.info(f" => uninstall file {f}")
-            os.remove(f)
-        except Exception as e:
-            logging.error(f" => unable to uninstall file {f}: {e}")
-
-
-def _warn_exists(path):
-    if os.path.isdir(path):
-        logging.warning(
-            f" => directory {path} is still present, "
-            f"you have to remove it manually")
-    else:
-        logging.warning(
-            f" => file {path} is still present, "
-            f"you have to remove it manually")
-
-
 def install(name):
     if not _check_root():
         sys.exit(2)
@@ -85,33 +135,16 @@ def install(name):
     pkg_dir = os.path.dirname(__file__)
 
     if _check_systemd():
-        dst = f"{SYSTEMD_PATH}/{name}.service"
-        src = f"{pkg_dir}/misc/systemd/{name}.service"
-        _copy_missing_file(src, dst)
+        _install_files(_systemd_files(pkg_dir, name))
 
     if _check_openrc():
-        files = [
-            (f"{pkg_dir}/misc/openrc/{name}.initd", f"/etc/init.d/{name}"),
-            (f"{pkg_dir}/misc/openrc/{name}.confd", f"/etc/conf.d/{name}")]
-        for src, dst in files:
-            _copy_missing_file(src, dst)
+        _install_files(_openrc_files(pkg_dir, name))
 
-    logging.info("install configuration file")
-    config_dir = f"/etc/{name}"
-    if os.path.isdir(config_dir):
-        logging.info(f" => directory {config_dir} already exists")
-    else:
-        try:
-            logging.info(f" => create directory {config_dir}")
-            os.mkdir(config_dir)
-        except Exception as e:
-            logging.error(f" => unable to create directory {config_dir}: {e}")
-            sys.exit(3)
+    if not _create_dir(f"/etc/{name}"):
+        logging.error(" => unable to create config dir, giving up ...")
+        sys.exit(3)
 
-    files = [
-        (f"{pkg_dir}/misc/config.py.default", f"{config_dir}/config.py")]
-    for src, dst in files:
-        _copy_missing_file(src, dst)
+    _install_files(_config_files(pkg_dir, name))
 
     logging.info(f"{name} successfully installed")
 
@@ -120,13 +153,16 @@ def uninstall(name):
     if not _check_root():
         sys.exit(2)
 
+    pkg_dir = os.path.dirname(__file__)
+
     if _check_systemd():
-        _delete_present_file(f"{SYSTEMD_PATH}/{name}.service")
+        _uninstall_files(_systemd_files(pkg_dir, name))
 
     if _check_openrc():
-        _delete_present_file(f"/etc/init.d/{name}")
-        _warn_exists(f"/etc/conf.d/{name}")
+        _uninstall_files(_openrc_files(pkg_dir, name))
 
-    _warn_exists(f"/etc/{name}")
+    _uninstall_files(_config_files(pkg_dir, name))
+
+    _delete_dir(f"/etc/{name}")
 
     logging.info(f"{name} successfully uninstalled")
