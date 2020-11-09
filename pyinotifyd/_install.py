@@ -109,7 +109,7 @@ def install(name):
             sys.exit(3)
 
     files = [
-        (f"{pkg_dir}/docs/config.py.example", f"{config_dir}/config.py")]
+        (f"{pkg_dir}/misc/config.py.default", f"{config_dir}/config.py")]
     for src, dst in files:
         _copy_missing_file(src, dst)
 

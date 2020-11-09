@@ -115,5 +115,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Temporary Vim files
+.*.swp
+
 # config file
 /config.py

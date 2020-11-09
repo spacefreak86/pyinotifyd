@@ -1,0 +1,84 @@
+##########################
+#  TaskScheduler config  #
+##########################
+
+#async def custom_task(event, task_id):
+#    logging.info(f"{task_id}: execute example task: {event}")
+#
+#task_sched = TaskScheduler(
+#    task=custom_task,
+#    files=True,
+#    dirs=False,
+#    delay=10)
+
+
+###########################
+#  ShellScheduler config  #
+###########################
+
+#shell_sched = ShellScheduler(
+#    cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}",
+#    files=True,
+#    dirs=False,
+#    delay=10)
+
+
+#################################
+#  FileManagerScheduler config  #
+#################################
+
+#move_rule = Rule(
+#    action="move",
+#    src_re="^(?P<path>.*).to_move",
+#    dst_re="\g<path>.moved",
+#    auto_create=True,
+#    filemode=0o755,
+#    dirmode=0o644,
+#    user="root",
+#    goup="root",
+#    overwrite=False)
+
+#delete_rule = Rule(
+#    action="delete",
+#    src_re="^(?P<path>.*).to_delete",
+#    rec=False)
+
+#file_sched = FileManagerScheduler(
+#    rules=[move_rule, delete_rule],
+#    files=True,
+#    dirs=False,
+#    delay=10)
+
+
+#####################
+#  EventMap config  #
+#####################
+
+#event_map = {
+#    "IN_ACCESS": None,
+#    "IN_ATTRIB": None,
+#    "IN_CLOSE_NOWRITE": None,
+#    "IN_CLOSE_WRITE": task_sched,
+#    "IN_CREATE": task_sched,
+#    "IN_DELETE": Cancel(task_sched),
+#    "IN_DELETE_SELF": Cancel(task_sched),
+#    "IN_IGNORED": None,
+#    "IN_MODIFY": Cancel(task_sched),
+#    "IN_MOVE_SELF": None,
+#    "IN_MOVED_FROM": Cancel(task_sched),
+#    "IN_MOVED_TO": task_sched,
+#    "IN_OPEN": None,
+#    "IN_Q_OVERFLOW": None,
+#    "IN_UNMOUNT": Cancel(task_sched)}
+
+
+#######################
+#  pyinotifyd config  #
+#######################
+
+#pyinotifyd = Pyinotifyd(shutdown_timeout=15)
+#pyinotifyd.add_watch(
+#    path="/watched/directory",
+#    event_map = event_map,
+#    rec=True,
+#    auto_add=True)
