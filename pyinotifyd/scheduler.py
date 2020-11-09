@@ -73,7 +73,7 @@ class TaskScheduler:
         self._tasks = {}
         self._pause = False
 
-    async def pause(self):
+    def pause(self):
         self._log.info("pause scheduler")
         self._pause = True
 
