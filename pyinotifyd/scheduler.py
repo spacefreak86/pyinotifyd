@@ -287,6 +287,10 @@ class FileManagerScheduler(TaskScheduler):
         return rule
 
     async def process_event(self, event):
+        if not ((not event.dir and self._files) or
+                (event.dir and self._dirs)):
+            return
+
         if self._get_rule_by_event(event):
             await super().process_event(event)
         else:
