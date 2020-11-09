@@ -1,5 +1,5 @@
 # pyinotifyd
-A daemon to monitor filesystems events with inotify on Linux and run tasks like filesystem operations (copy, move or delete), a shell commands or custom async python methods.  
+A daemon to monitor filesystems events with inotify on Linux and run tasks like filesystem operations (copy, move or delete), a shell command or custom async python methods.  
 It is possible to schedule tasks with a delay, delayed tasks can be cancelled again in case a certain event occurs. A useful example would be to run tasks only if a file has not changed within a certain amount of time.
 
 # Requirements
