@@ -155,12 +155,8 @@ def uninstall(name):
 
     pkg_dir = os.path.dirname(__file__)
 
-    if _check_systemd():
-        _uninstall_files(_systemd_files(pkg_dir, name))
-
-    if _check_openrc():
-        _uninstall_files(_openrc_files(pkg_dir, name))
-
+    _uninstall_files(_systemd_files(pkg_dir, name))
+    _uninstall_files(_openrc_files(pkg_dir, name))
     _uninstall_files(_config_files(pkg_dir, name))
 
     _delete_dir(f"/etc/{name}")
