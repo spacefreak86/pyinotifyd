@@ -205,8 +205,8 @@ syslog.setLevel(logging.INFO)
 # enable syslog for pyinotifyd
 logging.getLogger().addHandler(syslog)
 
-# or enable syslog just for the daemon
-logging.getLogger("daemon").addHandler(syslog)
+# or enable syslog per logname
+#logging.getLogger("logname").addHandler(syslog)
 ```
 
 # Examples
