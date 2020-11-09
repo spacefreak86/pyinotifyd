@@ -58,7 +58,8 @@ class EventMap(ProcessEvent):
         **pyinotify.EventsCodes.OP_FLAGS,
         **pyinotify.EventsCodes.EVENT_FLAGS}
 
-    def my_init(self, event_map=None, default_sched=None, loop=None):
+    def my_init(self, event_map=None, default_sched=None, loop=None,
+                logname="eventmap"):
         self._map = {}
         self._loop = (loop or asyncio.get_event_loop())
 
@@ -71,6 +72,8 @@ class EventMap(ProcessEvent):
                 f"event_map: expected {type(dict)}, got {type(event_map)}"
             for flag, schedulers in event_map.items():
                 self.set_scheduler(flag, schedulers)
+
+        self._log = logging.getLogger((logname or __name__))
 
     def set_scheduler(self, flag, schedulers):
         assert flag in EventMap.flags, \
@@ -94,7 +97,15 @@ class EventMap(ProcessEvent):
             del self._map[flag]
 
     def process_default(self, event):
-        logging.debug(f"received {event}")
+        msg = "received event"
+        for attr in ["dir", "mask", "maskname", "pathname", "src_pathname", "wd"]:
+            value = getattr(event, attr, None)
+            if attr == "mask":
+                value = hex(value)
+            if value:
+                msg += f", {attr}={value}"
+
+        self._log.debug(msg)
         maskname = event.maskname.split("|")[0]
         if maskname in self._map:
             self._map[maskname].process_event(event)
