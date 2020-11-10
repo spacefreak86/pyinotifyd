@@ -73,7 +73,8 @@ task_sched = TaskScheduler(
 ### ShellScheduler
 Schedule a shell command *cmd*. Replace  **{maskname}**, **{pathname}** and **{src_pathname}** in *cmd* with the actual values of occuring events. This scheduler is based on TaskScheduler and has the same optional arguments.
 ```python
-# Please note that **{src_pathname}** is only present for IN_MOVED_TO events and only in the case where the IN_MOVED_FROM events are watched too.
+# Please note that **{src_pathname}** is only present for IN_MOVED_TO events and only
+# in the case where the IN_MOVED_FROM events are watched too.
 # If it is not present, the command line argument will be an empty string.
 shell_sched = ShellScheduler(
     cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}")
