@@ -436,15 +436,14 @@ def main():
     ch.setFormatter(formatter)
 
     loop = asyncio.get_event_loop()
-    for signame in ["SIGINT", "SIGTERM"]:
-        loop.add_signal_handler(
-            getattr(signal, signame),
-            lambda: loop.create_task(
-                daemon.shutdown(signame)))
-
     loop.add_signal_handler(
-        getattr(signal, "SIGHUP"),
-        lambda: loop.create_task(
+        signal.SIGTERM, lambda: loop.create_task(
+            daemon.shutdown("SIGTERM")))
+    loop.add_signal_handler(
+        signal.SIGINT, lambda: loop.create_task(
+            daemon.shutdown("SIGINT")))
+    loop.add_signal_handler(
+        signal.SIGHUP, lambda: loop.create_task(
             daemon.reload("SIGHUP", args.config, args.debug)))
 
     daemon.start()
