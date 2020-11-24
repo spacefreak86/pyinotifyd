@@ -25,7 +25,6 @@ import os
 import re
 import shutil
 
-from dataclasses import dataclass
 from inspect import iscoroutinefunction
 from shlex import quote as shell_quote
 from uuid import uuid4
@@ -46,11 +45,11 @@ class SchedulerLogger(logging.LoggerAdapter):
 
 class TaskScheduler:
 
-    @dataclass
     class TaskState:
-        id: str = str(uuid4())
-        task: asyncio.Task = None
-        cancelable: bool = True
+        def __init__(self, id=None, task=None, cancelable=True):
+            self.id = id or str(uuid4())
+            self.task = task
+            self.cancelable = cancelable
 
     def __init__(self, job, files=True, dirs=False, delay=0, logname="sched",
                  loop=None):
