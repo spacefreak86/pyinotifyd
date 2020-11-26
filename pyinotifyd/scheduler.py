@@ -134,7 +134,7 @@ class TaskScheduler:
         except asyncio.CancelledError:
             logger.warning("ongoing task cancelled")
         else:
-            self._log.info("task finished")
+            logger.info("task finished")
         finally:
             del self._tasks[event.pathname]
 
