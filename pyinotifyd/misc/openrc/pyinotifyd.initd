@@ -13,11 +13,6 @@ retry="SIGTERM/${shutdown_timeout}"
 
 extra_commands="configtest reload"
 
-depend() {
-	need net
-	before mta
-}
-
 checkconfig() {
 	output=$(${command} ${command_args} -t 2>&1)
 	ret=$?
