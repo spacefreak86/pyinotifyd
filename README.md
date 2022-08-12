@@ -58,6 +58,9 @@ All arguments except for *job* are optional.
 # Bad:  time.sleep(10)
 # Good: await asyncio.sleep(10)
 
+import asyncio
+import logging
+
 async def custom_job(event, task_id):
     await asyncio.sleep(10)
     logging.info(f"{task_id}: execute example task: {event}")
@@ -67,7 +70,8 @@ task_sched = TaskScheduler(
     files=True,
     dirs=False,
     delay=0,
-    logname="sched")
+    logname="sched",
+    global_vars=globals())
 ```
 
 ### ShellScheduler
