@@ -46,13 +46,13 @@ class SchedulerLogger(logging.LoggerAdapter):
 class TaskScheduler:
 
     class TaskState:
-        def __init__(self, id=None, task=None, cancelable=True):
-            self.id = id or str(uuid4())
+        def __init__(self, task_id=None, task=None, cancelable=True):
+            self.id = task_id or str(uuid4())
             self.task = task
             self.cancelable = cancelable
 
     def __init__(self, job, files=True, dirs=False, delay=0, logname="sched",
-                 loop=None):
+                 loop=None, global_vars={}):
         assert iscoroutinefunction(job), \
             f"job: expected coroutine, got {type(job)}"
         assert isinstance(files, bool), \
@@ -61,6 +61,8 @@ class TaskScheduler:
             f"dirs: expected {type(bool)}, got {type(dirs)}"
         assert isinstance(delay, int), \
             f"delay: expected {type(int)}, got {type(delay)}"
+        assert isinstance(global_vars, dict), \
+            f"global_vars: expected {type(dict)}, got {type(global_vars)}"
 
         self._job = job
         self._files = files
@@ -68,7 +70,7 @@ class TaskScheduler:
         self._delay = delay
         self._log = logging.getLogger((logname or __name__))
         self._loop = (loop or asyncio.get_event_loop())
-
+        self._globals = global_vars
         self._tasks = {}
         self._pause = False
 
@@ -124,9 +126,16 @@ class TaskScheduler:
                 return
 
         logger.info("start task")
+        if self._globals:
+            local_vars = {"self": self,
+                          "event": event,
+                          "task_id": task_state.id}
+            task_state.task = self._loop.create_task(
+                eval("self._job(event, task_id)", self._globals, local_vars))
 
-        task_state.task = self._loop.create_task(
-            self._job(event, task_state.id))
+        else:
+            task_state.task = self._loop.create_task(
+                self._job(event, task_state.id))
 
         try:
             task_state.cancelable = False

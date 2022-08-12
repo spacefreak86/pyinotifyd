@@ -203,12 +203,12 @@ class Pyinotifyd:
         config = {}
         name = Pyinotifyd.name
         exec("from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL",
-             {}, config)
-        exec(f"from {name} import Pyinotifyd, Watch", {}, config)
-        exec(f"from {name} import setLoglevel, enableSyslog", {}, config)
-        exec(f"from {name}.scheduler import *", {}, config)
+            config)
+        exec(f"from {name} import Pyinotifyd, Watch", config)
+        exec(f"from {name} import setLoglevel, enableSyslog", config)
+        exec(f"from {name}.scheduler import *", config)
         with open(config_file, "r") as fh:
-            exec(fh.read(), {}, config)
+            exec(fh.read(), config)
         instance = config[f"{name}"]
         assert isinstance(instance, Pyinotifyd), \
             f"{name}: expected {type(Pyinotifyd)}, " \
