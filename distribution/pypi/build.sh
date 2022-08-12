@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-
+set -x
 PYTHON=$(which python)
 
 script_dir=$(dirname "$(readlink -f -- "$BASH_SOURCE")")
