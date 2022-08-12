@@ -117,6 +117,3 @@ dmypy.json
 
 # Temporary Vim files
 .*.swp
-
-# config file
-/config.py
