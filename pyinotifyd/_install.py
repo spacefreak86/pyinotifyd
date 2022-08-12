@@ -21,14 +21,19 @@ import shutil
 import sys
 
 
-SYSTEMD_PATH = "/lib/systemd/system"
+SYSTEMD_PATHS = ["/lib/systemd/system", "/usr/lib/systemd/system"]
+
 OPENRC = "/sbin/openrc"
 
 
 def _systemd_files(pkg_dir, name):
+    for path in SYSTEMD_PATHS:
+        if os.path.isdir(path):
+            break
+
     return [
         (f"{pkg_dir}/misc/systemd/{name}.service",
-            f"{SYSTEMD_PATH}/{name}.service", True)]
+            f"{path}/{name}.service", True)]
 
 
 def _openrc_files(pkg_dir, name):
@@ -113,7 +118,11 @@ def _check_root():
 
 
 def _check_systemd():
-    systemd = os.path.isdir(SYSTEMD_PATH)
+    for path in SYSTEMD_PATHS:
+        systemd = os.path.isdir(path)
+        if systemd:
+            break
+
     if systemd:
         logging.info("systemd detected")
 
