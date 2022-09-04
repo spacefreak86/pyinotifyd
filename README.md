@@ -214,6 +214,8 @@ enableSyslog(lglevel=INFO, name="daemon")
 
 ## Schedule python method for all events on files and directories
 ```python
+import logging
+
 async def custom_job(event, task_id):
     logging.info(f"{task_id}: execute example task: {event}")
 
