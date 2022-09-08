@@ -6,15 +6,16 @@
 #import logging
 #
 #async def custom_job(event, task_id):
-#    asyncio.sleep(1)
+#    await asyncio.sleep(1)
 #    logging.info(f"{task_id}: execute example task: {event}")
 #
 #task_sched = TaskScheduler(
 #    job=custom_job,
 #    files=True,
 #    dirs=False,
-#    delay=10
-#    global_vars=globals())
+#    delay=10,
+#    global_vars=globals(),
+#    singlejob=False)
 
 
 ###########################
@@ -25,7 +26,8 @@
 #    cmd="/usr/local/bin/task.sh {maskname} {pathname} {src_pathname}",
 #    files=True,
 #    dirs=False,
-#    delay=10)
+#    delay=10,
+#    singlejob=False)
 
 
 #################################
