@@ -31,12 +31,12 @@ import pyinotify
 import signal
 import sys
 
-from pyinotify import ProcessEvent
+from pyinotify import ProcessEvent, ExcludeFilter
 
 from pyinotifyd._install import install, uninstall
 from pyinotifyd.scheduler import TaskScheduler, Cancel
 
-__version__ = "0.0.8"
+__version__ = "0.0.7"
 
 
 def setLoglevel(loglevel, logname=None):
@@ -76,9 +76,10 @@ class EventMap(ProcessEvent):
         **pyinotify.EventsCodes.OP_FLAGS,
         **pyinotify.EventsCodes.EVENT_FLAGS}
 
-    def my_init(self, event_map=None, default_sched=None, loop=None,
+    def my_init(self, event_map=None, default_sched=None, exclude_filter=None, loop=None,
                 logname="eventmap"):
         self._map = {}
+        self._exclude_filter = None
         self._loop = (loop or asyncio.get_event_loop())
 
         if default_sched is not None:
@@ -91,6 +92,7 @@ class EventMap(ProcessEvent):
             for flag, schedulers in event_map.items():
                 self.set_scheduler(flag, schedulers)
 
+        self.set_exclude_filter(exclude_filter)
         self._log = logging.getLogger((logname or __name__))
 
     def set_scheduler(self, flag, schedulers):
@@ -114,20 +116,37 @@ class EventMap(ProcessEvent):
         elif flag in self._map:
             del self._map[flag]
 
+    def set_exclude_filter(self, exclude_filter):
+        if exclude_filter is None:
+            self._exclude_filter = None
+            return
+
+        if not isinstance(exclude_filter, ExcludeFilter):
+            self._exclude_filter = ExcludeFilter(exclude_filter)
+        else:
+            self._exclude_filter = exclude_filter
+
     def process_default(self, event):
-        msg = "received event"
+        attrs = ""
         for attr in [
                 "dir", "mask", "maskname", "pathname", "src_pathname", "wd"]:
             value = getattr(event, attr, None)
             if attr == "mask":
                 value = hex(value)
             if value:
-                msg += f", {attr}={value}"
+                attrs += f", {attr}={value}"
 
-        self._log.debug(msg)
+        self._log.debug(f"received event{attrs}")
         maskname = event.maskname.split("|")[0]
-        if maskname in self._map:
-            self._map[maskname].process_event(event)
+
+        if maskname not in self._map:
+            return
+
+        if self._exclude_filter and self._exclude_filter(event.pathname):
+            self._log.debug(f"pathname {event.pathname} is excluded")
+            return
+
+        self._map[maskname].process_event(event)
 
     def schedulers(self):
         schedulers = []
@@ -139,21 +158,31 @@ class EventMap(ProcessEvent):
 
 
 class Watch:
-    def __init__(self, path, event_map=None, default_sched=None, rec=False,
-                 auto_add=False, logname="watch", loop=None):
-        assert isinstance(path, str), \
-            f"path: expected {type('')}, got {type(path)}"
+    def __init__(self, path, event_map=None, default_sched=None,
+                 rec=False, auto_add=False, exclude_filter=None,
+                 logname="watch", loop=None):
+        assert (isinstance(path, str) or isinstance(path, list)), \
+            f"path: expected {type('')} or {type([])}, got {type(path)}"
 
         if isinstance(event_map, EventMap):
             self._event_map = event_map
         else:
             self._event_map = EventMap(
-                event_map=event_map, default_sched=default_sched)
+                event_map=event_map, default_sched=default_sched,
+                exclude_filter=exclude_filter)
 
         assert isinstance(rec, bool), \
             f"rec: expected {type(bool)}, got {type(rec)}"
         assert isinstance(auto_add, bool), \
             f"auto_add: expected {type(bool)}, got {type(auto_add)}"
+
+        self._exclude_filter = None
+        if exclude_filter:
+            if not isinstance(exclude_filter, ExcludeFilter):
+                self._exclude_filter = ExcludeFilter(exclude_filter)
+            else:
+                self._exclude_filter = exclude_filter
+
         logname = (logname or __name__)
         self._loop = loop
 
@@ -175,6 +204,7 @@ class Watch:
         loop = (loop or self._loop)
         self._watch_manager.add_watch(self._path, pyinotify.ALL_EVENTS,
                                       rec=self._rec, auto_add=self._auto_add,
+                                      exclude_filter=self._exclude_filter,
                                       do_glob=True)
 
         self._notifier = pyinotify.AsyncioNotifier(

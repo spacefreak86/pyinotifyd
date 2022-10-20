@@ -88,7 +88,8 @@
 #    path="/watched/directory",
 #    event_map = event_map,
 #    rec=True,
-#    auto_add=True)
+#    auto_add=True,
+#    exclude_filter=["^/watched/directory/subpath$"])
 
 
 ################

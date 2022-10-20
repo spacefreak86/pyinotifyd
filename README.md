@@ -165,21 +165,23 @@ pyinotifyd = Pyinotifyd(
 ```
 
 ### Watches
-A watch connects the *path* to an *event_map*. Automatically add a watch on each sub-directories in *path* if *rec* is set to True. If *auto_add* is True, a watch will be added automatically on newly created sub-directories in *path*.
+A watch connects the *path* to an *event_map*. Automatically add a watch on each sub-directories in *path* if *rec* is set to True. If *auto_add* is True, a watch will be added automatically on newly created sub-directories in *path*. All events for paths matching one of the regular expressions in *exclude_filter* are ignored. If the value of *exclude_filter* is a string, it is assumed to be a path to a file from which the list of regular expressions will be read.
 ```python
 # Add a watch directly to Pyinotifyd.
 pyinotifyd.add_watch(
     path="/src_path",
     event_map=event_map,
     rec=False,
-    auto_add=False)
+    auto_add=False,
+    exclude_filter=["^/src_path/subpath$"])
 
 # Or instantiate and add it
 w = Watch(
     path="/src_path",
     event_map=event_map,
     rec=False,
-    auto_add=False)
+    auto_add=False,
+    exclude_filter=["^/src_path/subpath$"])
 
 pyinotifyd.add_watch(watch=w)
 ```
