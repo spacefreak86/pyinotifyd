@@ -52,7 +52,7 @@ class TaskScheduler:
             self.cancelable = cancelable
 
     def __init__(self, job, files=True, dirs=False, delay=0, logname="sched",
-                 loop=None, global_vars={}, singlejob=False):
+                 global_vars={}, singlejob=False):
         assert iscoroutinefunction(job), \
             f"job: expected coroutine, got {type(job)}"
         assert isinstance(files, bool), \
@@ -69,7 +69,6 @@ class TaskScheduler:
         self._dirs = dirs
         self._delay = delay
         self._log = logging.getLogger((logname or __name__))
-        self._loop = (loop or asyncio.get_event_loop())
         self._globals = global_vars
         self._singlejob = singlejob
         self._tasks = {}
@@ -91,8 +90,7 @@ class TaskScheduler:
                 self._log.info(
                     f"wait {timeout} seconds for {len(pending)} "
                     f"remaining task(s) to complete")
-            done, pending = await asyncio.wait([*pending], timeout=timeout,
-                                               loop=self._loop)
+            done, pending = await asyncio.wait([*pending], timeout=timeout)
             if pending:
                 self._log.warning(
                     f"shutdown timeout exceeded, "
@@ -100,7 +98,7 @@ class TaskScheduler:
                 for task in pending:
                     task.cancel()
                 try:
-                    await asyncio.gather(*pending, loop=self._loop)
+                    await asyncio.gather(*pending)
                 except asyncio.CancelledError:
                     pass
             else:
@@ -115,7 +113,7 @@ class TaskScheduler:
             "id": task_state.id})
 
         if self._delay > 0:
-            task_state.task = self._loop.create_task(
+            task_state.task = asyncio.create_task(
                 asyncio.sleep(self._delay))
             try:
                 if restart:
@@ -134,11 +132,11 @@ class TaskScheduler:
             local_vars = {"self": self,
                           "event": event,
                           "task_id": task_state.id}
-            task_state.task = self._loop.create_task(
+            task_state.task = asyncio.create_task(
                 eval("self._job(event, task_id)", self._globals, local_vars))
 
         else:
-            task_state.task = self._loop.create_task(
+            task_state.task = asyncio.create_task(
                 self._job(event, task_state.id))
 
         try:
@@ -244,7 +242,7 @@ class ShellScheduler(TaskScheduler):
 
         logger.info(f"execute shell command, cmd={cmd}")
         try:
-            proc = await asyncio.create_subprocess_shell(cmd, loop=self._loop)
+            proc = await asyncio.create_subprocess_shell(cmd)
             await proc.communicate()
         except Exception as e:
             logger.error(e)

@@ -36,7 +36,7 @@ from pyinotify import ProcessEvent, ExcludeFilter
 from pyinotifyd._install import install, uninstall
 from pyinotifyd.scheduler import TaskScheduler, Cancel
 
-__version__ = "0.0.9"
+__version__ = "0.0.8"
 
 
 def setLoglevel(loglevel, logname=None):
@@ -56,16 +56,15 @@ def enableSyslog(loglevel=None, address="/dev/log", logname=None):
 
 
 class _SchedulerList:
-    def __init__(self, schedulers=[], loop=None):
+    def __init__(self, schedulers=[]):
         if not isinstance(schedulers, list):
             schedulers = [schedulers]
 
         self._schedulers = schedulers
-        self._loop = (loop or asyncio.get_event_loop())
 
     def process_event(self, event):
         for scheduler in self._schedulers:
-            self._loop.create_task(scheduler.process_event(event))
+            asyncio.create_task(scheduler.process_event(event))
 
     def schedulers(self):
         return self._schedulers
@@ -76,11 +75,10 @@ class EventMap(ProcessEvent):
         **pyinotify.EventsCodes.OP_FLAGS,
         **pyinotify.EventsCodes.EVENT_FLAGS}
 
-    def my_init(self, event_map=None, default_sched=None, exclude_filter=None, loop=None,
+    def my_init(self, event_map=None, default_sched=None, exclude_filter=None,
                 logname="eventmap"):
         self._map = {}
         self._exclude_filter = None
-        self._loop = (loop or asyncio.get_event_loop())
 
         if default_sched is not None:
             for flag in EventMap.flags:
@@ -108,10 +106,9 @@ class EventMap(ProcessEvent):
                         isinstance(scheduler, Cancel):
                     instances.append(scheduler)
                 else:
-                    instances.append(
-                        TaskScheduler(scheduler, loop=self._loop))
+                    instances.append(TaskScheduler(scheduler))
 
-            self._map[flag] = _SchedulerList(instances, loop=self._loop)
+            self._map[flag] = _SchedulerList(instances)
 
         elif flag in self._map:
             del self._map[flag]
@@ -160,7 +157,7 @@ class EventMap(ProcessEvent):
 class Watch:
     def __init__(self, path, event_map=None, default_sched=None,
                  rec=False, auto_add=False, exclude_filter=None,
-                 logname="watch", loop=None):
+                 logname="watch"):
         assert (isinstance(path, str) or isinstance(path, list)), \
             f"path: expected {type('')} or {type([])}, got {type(path)}"
 
@@ -184,7 +181,6 @@ class Watch:
                 self._exclude_filter = exclude_filter
 
         logname = (logname or __name__)
-        self._loop = loop
 
         self._path = path
         self._rec = rec
@@ -200,15 +196,14 @@ class Watch:
     def event_map(self):
         return self._event_map
 
-    def start(self, loop=None):
-        loop = (loop or self._loop)
+    def start(self):
         self._watch_manager.add_watch(self._path, pyinotify.ALL_EVENTS,
                                       rec=self._rec, auto_add=self._auto_add,
                                       exclude_filter=self._exclude_filter,
                                       do_glob=True)
 
         self._notifier = pyinotify.AsyncioNotifier(
-            self._watch_manager, loop, default_proc_fun=self._event_map)
+            self._watch_manager, asyncio.get_event_loop(), default_proc_fun=self._event_map)
 
     def stop(self):
         self._notifier.stop()
@@ -219,12 +214,10 @@ class Watch:
 class Pyinotifyd:
     name = "pyinotifyd"
 
-    def __init__(self, watches=[], shutdown_timeout=30, logname="daemon",
-                 loop=None):
+    def __init__(self, watches=[], shutdown_timeout=30, logname="daemon"):
         self.set_watches(watches)
         self.set_shutdown_timeout(shutdown_timeout)
         logname = (logname or __name__)
-        self._loop = (loop or asyncio.get_event_loop())
 
         self._log = logging.getLogger(logname)
 
@@ -276,9 +269,7 @@ class Pyinotifyd:
             schedulers.extend(w.event_map().schedulers())
         return list(set(schedulers))
 
-    def start(self, loop=None):
-        loop = (loop or self._loop)
-
+    def start(self):
         if len(self._watches) == 0:
             self._log.warning(
                 "no watches configured, the daemon will not do anything")
@@ -286,7 +277,7 @@ class Pyinotifyd:
         for watch in self._watches:
             self._log.info(
                 f"start listening for inotify events on '{watch.path()}'")
-            watch.start(loop)
+            watch.start()
 
     def pause(self):
         for scheduler in self.schedulers():
