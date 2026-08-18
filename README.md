@@ -95,8 +95,8 @@ If *action* is delete, delete non-empty directories if *rec* is set to True.
 ```python
 move_rule = FileManagerRule(
     action="move",
-    src_re="^/src_path/(?P<path>.*).to_move$",
-    dst_re="/dst_path/\g<path>",
+    src_re=r"^/src_path/(?P<path>.*).to_move$",
+    dst_re=r"/dst_path/\g<path>",
     auto_create=False,
     rec=False,
     filemode=None,
@@ -107,7 +107,7 @@ move_rule = FileManagerRule(
 
 delete_rule = FileManagerRule(
     action="delete",
-    src_re="^/src_path/(?P<path>.*).to_delete$",
+    src_re=r"^/src_path/(?P<path>.*).to_delete$",
     rec=False)
 
 file_sched = FileManagerScheduler(
@@ -260,23 +260,23 @@ pyinotifyd.add_watch(
 ```python
 move_rule = FileManagerRule(
     action="move",
-    src_re="^/src_path/(?P<path>.*)\.to_move$",
-    dst_re="/dst_path/\g<path>",
+    src_re=r"^/src_path/(?P<path>.*)\.to_move$",
+    dst_re=r"/dst_path/\g<path>",
     auto_create=True,
     filemode=0o644,
     dirmode=0o755)
 
 copy_rule = FileManagerRule(
     action="copy",
-    src_re="^/src_path/(?P<path>.*)\.to_copy$",
-    dst_re="/dst_path/\g<path>",
+    src_re=r"^/src_path/(?P<path>.*)\.to_copy$",
+    dst_re=r"/dst_path/\g<path>",
     auto_create=True,
     filemode=0o644,
     dirmode=0o755)
 
 delete_rule = FileManagerRule(
     action="delete",
-    src_re="^/src_path/(?P<path>.*)\.to_delete$",
+    src_re=r"^/src_path/(?P<path>.*)\.to_delete$",
     rec=False)
 
 file_sched = FileManagerScheduler(
