@@ -36,8 +36,8 @@
 
 #move_rule = Rule(
 #    action="move",
-#    src_re="^/src_path/(?P<path>.*).to_move",
-#    dst_re="/dst_path/\\g<path>.moved",
+#    src_re=r"^/src_path/(?P<path>.*).to_move",
+#    dst_re=r"/dst_path/\g<path>.moved",
 #    auto_create=True,
 #    filemode=0o755,
 #    dirmode=0o644,
@@ -47,7 +47,7 @@
 
 #delete_rule = Rule(
 #    action="delete",
-#    src_re="^/src_path/(?P<path>.*).to_delete",
+#    src_re=r"^/src_path/(?P<path>.*).to_delete",
 #    rec=False)
 
 #file_sched = FileManagerScheduler(

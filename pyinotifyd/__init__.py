@@ -36,7 +36,7 @@ from pyinotify import ProcessEvent, ExcludeFilter
 from pyinotifyd._install import install, uninstall
 from pyinotifyd.scheduler import TaskScheduler, Cancel
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 def setLoglevel(loglevel, logname=None):
