@@ -37,7 +37,7 @@
 #move_rule = Rule(
 #    action="move",
 #    src_re="^/src_path/(?P<path>.*).to_move",
-#    dst_re="/dst_path/\g<path>.moved",
+#    dst_re="/dst_path/\\g<path>.moved",
 #    auto_create=True,
 #    filemode=0o755,
 #    dirmode=0o644,

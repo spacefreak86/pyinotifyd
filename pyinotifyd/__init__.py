@@ -36,7 +36,7 @@ from pyinotify import ProcessEvent, ExcludeFilter
 from pyinotifyd._install import install, uninstall
 from pyinotifyd.scheduler import TaskScheduler, Cancel
 
-__version__ = "0.0.10"
+__version__ = "1.0.0"
 
 
 def setLoglevel(loglevel, logname=None):
@@ -203,7 +203,9 @@ class Watch:
                                       do_glob=True)
 
         self._notifier = pyinotify.AsyncioNotifier(
-            self._watch_manager, asyncio.get_event_loop(), default_proc_fun=self._event_map)
+                self._watch_manager,
+                asyncio.get_event_loop(),
+                default_proc_fun=self._event_map)
 
     def stop(self):
         self._notifier.stop()
@@ -226,7 +228,7 @@ class Pyinotifyd:
         config = {}
         name = Pyinotifyd.name
         exec("from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL",
-            config)
+             config)
         exec(f"from {name} import Pyinotifyd, Watch", config)
         exec(f"from {name} import setLoglevel, enableSyslog", config)
         exec(f"from {name}.scheduler import *", config)
@@ -456,7 +458,7 @@ def main():
         f"%(asctime)s - {name}/%(name)s - %(levelname)s - %(message)s")
     ch.setFormatter(formatter)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     loop.add_signal_handler(
         signal.SIGTERM, lambda: loop.create_task(
             daemon.shutdown("SIGTERM")))
@@ -466,6 +468,7 @@ def main():
     loop.add_signal_handler(
         signal.SIGHUP, lambda: loop.create_task(
             daemon.reload("SIGHUP", args.config, args.debug)))
+    asyncio.set_event_loop(loop)
 
     daemon.start()
     loop.run_forever()
